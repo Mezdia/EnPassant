@@ -63,6 +63,7 @@ import { check } from "@tauri-apps/plugin-updater";
 import ErrorComponent from "@/components/ErrorComponent";
 import { getDatabasesDir, getDocumentDir, getEnginesDir, getPuzzlesDir } from "@/utils/directories";
 import { initUserAgent } from "@/utils/http";
+import { isDesktop } from "@/utils/platform";
 import { routeTree } from "./routeTree.gen";
 
 export type Dirs = {
@@ -117,6 +118,9 @@ declare module "@tanstack/react-router" {
 }
 
 const checkForUpdates = async () => {
+  // Updates on Android are handled by the Play Store; the updater plugin is
+  // desktop-only (gated behind #[cfg(desktop)] in the backend).
+  if (!isDesktop()) return;
   try {
     const update = await check();
     if (update) {
@@ -175,17 +179,21 @@ function useAppStartup() {
       if (telemetryEnabled) {
         posthog.capture("app_started", { version: await getVersion() });
       }
-      try {
-        const matches = await getMatches();
-        if (matches.args.file.occurrences > 0) {
-          info(`Opening file from command line: ${matches.args.file.value}`);
-          if (typeof matches.args.file.value === "string") {
-            const file = matches.args.file.value;
-            openFile(file, setTabs, setActiveTab);
+      // The CLI plugin (file-open from command line) is desktop-only. On Android,
+      // file opening happens via VIEW/share intents instead.
+      if (isDesktop()) {
+        try {
+          const matches = await getMatches();
+          if (matches.args.file.occurrences > 0) {
+            info(`Opening file from command line: ${matches.args.file.value}`);
+            if (typeof matches.args.file.value === "string") {
+              const file = matches.args.file.value;
+              openFile(file, setTabs, setActiveTab);
+            }
           }
+        } catch (e) {
+          warn(`Failed to parse CLI args: ${e}`);
         }
-      } catch (e) {
-        warn(`Failed to parse CLI args: ${e}`);
       }
 
       await preloadReferenceDb(store);

@@ -1,0 +1,116 @@
+/* Shared */
+.root {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+}
+
+/* ---------- Portrait ---------- */
+.portrait {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  height: 100%;
+}
+
+/* Board + notation strip fill the area behind the sheet. */
+.portraitBoard {
+  flex: 1 1 auto;
+  min-height: 0;
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  overflow: hidden;
+}
+
+.portraitNotation {
+  flex: 0 0 auto;
+}
+
+/* Bottom sheet holding the tabbed panels (#topRight). */
+.sheet {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  display: flex;
+  flex-direction: column;
+  background-color: var(--mantine-color-body);
+  border-top: 1px solid var(--mantine-color-default-border);
+  border-top-left-radius: var(--mantine-radius-md);
+  border-top-right-radius: var(--mantine-radius-md);
+  box-shadow: 0 -2px 12px rgba(0, 0, 0, 0.18);
+  z-index: 5;
+}
+
+/* Disable the height transition while the user is dragging. */
+.dragging {
+  transition: none !important;
+}
+
+.sheetAnimated {
+  transition: height 180ms ease;
+}
+
+.handleZone {
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 1.5rem;
+  cursor: grab;
+  touch-action: none;
+}
+
+.handle {
+  width: 2.25rem;
+  height: 0.25rem;
+  border-radius: 999px;
+  background-color: var(--mantine-color-default-border);
+}
+
+.sheetBody {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow: hidden;
+  padding: 0 var(--mantine-spacing-xs) var(--mantine-spacing-xs);
+}
+
+/* ---------- Landscape ---------- */
+.landscape {
+  display: flex;
+  flex-direction: row;
+  width: 100%;
+  height: 100%;
+  gap: var(--mantine-spacing-xs);
+}
+
+.landscapeLeft {
+  flex: 0 0 58%;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--mantine-spacing-xs);
+  overflow: hidden;
+}
+
+.landscapeBoard {
+  flex: 1 1 auto;
+  min-height: 0;
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  overflow: hidden;
+}
+
+.landscapeNotation {
+  flex: 0 0 auto;
+}
+
+.landscapeRight {
+  flex: 1 1 auto;
+  min-width: 0;
+  min-height: 0;
+  overflow: hidden;
+}

@@ -18,11 +18,13 @@ import useSWRImmutable from "swr/immutable";
 import { match } from "ts-pattern";
 import type { Dirs } from "@/App";
 import AboutModal from "@/components/About";
+import { BottomTabBar } from "@/components/BottomTabBar";
 import { SideBar } from "@/components/Sidebar";
 import TopBar from "@/components/TopBar";
 import { activeTabAtom, nativeBarAtom, tabsAtom } from "@/state/atoms";
 import { keyMapAtom } from "@/state/keybinds";
 import { openFile } from "@/utils/files";
+import { isDesktop } from "@/utils/platform";
 import { createTab } from "@/utils/tabs";
 
 type MenuGroup = {
@@ -146,6 +148,7 @@ function RootLayout() {
   const [opened, setOpened] = useState(false);
 
   const isMacOS = platform() === "macos";
+  const mobile = !isDesktop();
 
   const aboutOption = {
     label: t("Menu.Help.About"),
@@ -315,10 +318,14 @@ function RootLayout() {
     [t, checkForUpdates, createNewTab, keyMap, openNewFile, toggleFullscreen],
   );
 
-  const { data: menu } = useSWRImmutable(["menu", menuActions], () => createMenu(menuActions));
+  const { data: menu } = useSWRImmutable(isDesktop() ? ["menu", menuActions] : null, () =>
+    createMenu(menuActions),
+  );
 
   useEffect(() => {
     if (!menu) return;
+    // Native menus & window decorations are desktop-only APIs; skip on mobile.
+    if (!isDesktop()) return;
     if (
       isNative ||
       (import.meta.env.VITE_PLATFORM !== "win32" && import.meta.env.VITE_PLATFORM !== "linux")
@@ -332,6 +339,8 @@ function RootLayout() {
   }, [menu, isNative]);
 
   useEffect(() => {
+    // File drag-drop is a desktop window event; N/A on touch devices.
+    if (!isDesktop()) return;
     const unlisten = getCurrentWindow().listen(TauriEvent.DRAG_DROP, (event) => {
       const payload = event.payload as { paths: string[] };
       if (payload?.paths) {
@@ -350,6 +359,28 @@ function RootLayout() {
       unlisten.then((fn) => fn());
     };
   }, [navigate, setTabs, setActiveTab]);
+
+  if (mobile) {
+    return (
+      <AppShell
+        footer={{ height: "3.5rem" }}
+        styles={{
+          main: {
+            height: "100vh",
+            userSelect: "none",
+          },
+        }}
+      >
+        <AboutModal opened={opened} setOpened={setOpened} />
+        <AppShell.Main>
+          <Outlet />
+        </AppShell.Main>
+        <AppShell.Footer>
+          <BottomTabBar />
+        </AppShell.Footer>
+      </AppShell>
+    );
+  }
 
   return (
     <AppShell

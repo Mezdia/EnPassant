@@ -1,0 +1,22 @@
+.bar {
+  height: 2.75rem;
+  width: 100%;
+  border-bottom: 1px solid var(--mantine-color-default-border);
+  flex-shrink: 0;
+}
+
+.item {
+  flex: 1;
+  min-width: 0;
+  padding: 0.5rem 0.625rem;
+  border-radius: var(--mantine-radius-sm);
+}
+
+.item:hover {
+  background-color: var(--mantine-color-default-hover);
+}
+
+.selected {
+  background-color: var(--mantine-color-default-hover);
+  border-left: 3px solid var(--mantine-primary-color-filled);
+}
