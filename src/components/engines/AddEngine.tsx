@@ -10,11 +10,17 @@ import {
   Paper,
   ScrollArea,
   SimpleGrid,
+  Stack,
   Tabs,
   Text,
 } from "@mantine/core";
 import { useForm } from "@mantine/form";
-import { IconAlertCircle, IconDatabase, IconTrophy } from "@tabler/icons-react";
+import {
+  IconAlertCircle,
+  IconDatabase,
+  IconInfoCircle,
+  IconTrophy,
+} from "@tabler/icons-react";
 import { join, resolve } from "@tauri-apps/api/path";
 import { useAtom } from "jotai";
 import { useCallback, useState } from "react";
@@ -30,7 +36,9 @@ import {
 } from "@/utils/engines";
 import { usePlatform } from "@/utils/files";
 import { formatBytes } from "@/utils/format";
+import { isAndroid } from "@/utils/platform";
 import { unwrap } from "@/utils/unwrap";
+import { useIsMobilePortrait } from "@/utils/useIsLandscape";
 import ProgressButton from "../common/ProgressButton";
 import EngineForm from "./EngineForm";
 
@@ -47,8 +55,15 @@ function AddEngine({
   const engines = (allEngines ?? []).filter((e): e is LocalEngine => e.type === "local");
 
   const { os } = usePlatform();
+  const portrait = useIsMobilePortrait();
+  // Android forbids exec()ing a binary from writable storage, so neither the
+  // download list nor a hand-picked local binary can produce a usable engine.
+  const localEnginesSupported = !isAndroid();
 
-  const { defaultEngines, error, isLoading } = useDefaultEngines(os, opened);
+  const { defaultEngines, error, isLoading } = useDefaultEngines(
+    os,
+    opened && localEnginesSupported,
+  );
 
   const form = useForm<LocalEngine>({
     initialValues: {
@@ -78,67 +93,83 @@ function AddEngine({
       onClose={() => setOpened(false)}
       title={t("Engines.Add.Title")}
       size="80%"
+      fullScreen={portrait}
     >
-      <Tabs defaultValue="download">
+      <Tabs defaultValue={localEnginesSupported ? "download" : "cloud"}>
         <Tabs.List>
-          <Tabs.Tab value="download">{t("Common.Download")}</Tabs.Tab>
+          {localEnginesSupported && <Tabs.Tab value="download">{t("Common.Download")}</Tabs.Tab>}
           <Tabs.Tab value="cloud">{t("Engines.Add.Cloud")}</Tabs.Tab>
-          <Tabs.Tab value="local">{t("Common.Local")}</Tabs.Tab>
+          {localEnginesSupported && <Tabs.Tab value="local">{t("Common.Local")}</Tabs.Tab>}
         </Tabs.List>
-        <Tabs.Panel value="download" pt="xs">
-          {isLoading && (
-            <Center>
-              <Loader />
-            </Center>
-          )}
-          <ScrollArea.Autosize mah={720} offsetScrollbars>
-            <SimpleGrid cols={{ base: 1, sm: 2, lg: 3 }} spacing="sm">
-              {defaultEngines?.map((engine, i) => (
-                <EngineCard
-                  engine={engine}
-                  engineId={i}
-                  key={i}
-                  initInstalled={engines.some((e) => e.name === engine.name)}
-                />
-              ))}
-              {error && (
-                <Alert icon={<IconAlertCircle size="1rem" />} title={t("Common.Error")} color="red">
-                  {t("Engines.Add.ErrorFetch")}
-                </Alert>
-              )}
-            </SimpleGrid>
-          </ScrollArea.Autosize>
-        </Tabs.Panel>
+        {localEnginesSupported && (
+          <Tabs.Panel value="download" pt="xs">
+            {isLoading && (
+              <Center>
+                <Loader />
+              </Center>
+            )}
+            <ScrollArea.Autosize mah={720} offsetScrollbars>
+              <SimpleGrid cols={{ base: 1, sm: 2, lg: 3 }} spacing="sm">
+                {defaultEngines?.map((engine, i) => (
+                  <EngineCard
+                    engine={engine}
+                    engineId={i}
+                    key={i}
+                    initInstalled={engines.some((e) => e.name === engine.name)}
+                  />
+                ))}
+                {error && (
+                  <Alert
+                    icon={<IconAlertCircle size="1rem" />}
+                    title={t("Common.Error")}
+                    color="red"
+                  >
+                    {t("Engines.Add.ErrorFetch")}
+                  </Alert>
+                )}
+              </SimpleGrid>
+            </ScrollArea.Autosize>
+          </Tabs.Panel>
+        )}
         <Tabs.Panel value="cloud" pt="xs">
-          <SimpleGrid cols={{ base: 1, sm: 2, lg: 3 }} spacing="sm">
-            <CloudCard
-              engine={{
-                id: crypto.randomUUID(),
-                name: "ChessDB",
-                type: "chessdb",
-                url: "https://chessdb.cn",
+          <Stack>
+            {!localEnginesSupported && (
+              <Alert variant="light" color="blue" icon={<IconInfoCircle size="1rem" />} p="xs">
+                <Text fz="xs">{t("Board.Opponent.AndroidEngineNote")}</Text>
+              </Alert>
+            )}
+            <SimpleGrid cols={{ base: 1, sm: 2, lg: 3 }} spacing="sm">
+              <CloudCard
+                engine={{
+                  id: crypto.randomUUID(),
+                  name: "ChessDB",
+                  type: "chessdb",
+                  url: "https://chessdb.cn",
+                }}
+              />
+              <CloudCard
+                engine={{
+                  id: crypto.randomUUID(),
+                  name: "Lichess Cloud",
+                  type: "lichess",
+                  url: "https://lichess.org",
+                }}
+              />
+            </SimpleGrid>
+          </Stack>
+        </Tabs.Panel>
+        {localEnginesSupported && (
+          <Tabs.Panel value="local" pt="xs">
+            <EngineForm
+              submitLabel={t("Common.Add")}
+              form={form}
+              onSubmit={(values: LocalEngine) => {
+                setEngines(async (prev) => [...(await prev), values]);
+                setOpened(false);
               }}
             />
-            <CloudCard
-              engine={{
-                id: crypto.randomUUID(),
-                name: "Lichess Cloud",
-                type: "lichess",
-                url: "https://lichess.org",
-              }}
-            />
-          </SimpleGrid>
-        </Tabs.Panel>
-        <Tabs.Panel value="local" pt="xs">
-          <EngineForm
-            submitLabel={t("Common.Add")}
-            form={form}
-            onSubmit={(values: LocalEngine) => {
-              setEngines(async (prev) => [...(await prev), values]);
-              setOpened(false);
-            }}
-          />
-        </Tabs.Panel>
+          </Tabs.Panel>
+        )}
       </Tabs>
     </Modal>
   );

@@ -18,7 +18,7 @@ import { useNavigate } from "@tanstack/react-router";
 import dayjs from "dayjs";
 import { useAtom, useSetAtom } from "jotai";
 import { DataTable } from "mantine-datatable";
-import { useContext } from "react";
+import { useContext, useState } from "react";
 import { useTranslation } from "react-i18next";
 import useSWR from "swr";
 import { useStore } from "zustand";
@@ -26,9 +26,11 @@ import type { GameSort, NormalizedGame, Outcome } from "@/bindings";
 import { activeTabAtom, tabsAtom } from "@/state/atoms";
 import { query_games } from "@/utils/db";
 import { createTab } from "@/utils/tabs";
+import { useIsMobilePortrait } from "@/utils/useIsLandscape";
 import { DatabaseViewStateContext } from "./DatabaseViewStateContext";
 import GameCard from "./GameCard";
 import GridLayout from "./GridLayout";
+import { MobileFilterHeader, MobileGameFilters, MobileGameRow, MobileRowList } from "./MobileList";
 import { PlayerSearchInput } from "./PlayerSearchInput";
 import { SideInput } from "./SideInput";
 import classes from "./styles.module.css";
@@ -36,6 +38,7 @@ import classes from "./styles.module.css";
 function GameTable() {
   const { t } = useTranslation();
   const store = useContext(DatabaseViewStateContext)!;
+  const portrait = useIsMobilePortrait();
 
   const file = useStore(store, (s) => s.database?.file)!;
   const query = useStore(store, (s) => s.games.query);
@@ -47,6 +50,7 @@ function GameTable() {
   const setSelectedGame = useStore(store, (s) => s.setGamesSelectedGame);
 
   const navigate = useNavigate();
+  const [filtersOpened, setFiltersOpened] = useState(false);
 
   const [, setTabs] = useAtom(tabsAtom);
   const setActiveTab = useSetAtom(activeTabAtom);
@@ -57,6 +61,28 @@ function GameTable() {
 
   const games = data?.data ?? [];
   const count = data?.count;
+  const page = query.options?.page ?? 1;
+  const pageSize = query.options?.pageSize ?? 25;
+
+  /** Opening a game replaces the board tab, same as the desktop double-click. */
+  function openGame(record: NormalizedGame) {
+    createTab({
+      tab: {
+        name: `${record.white} - ${record.black}`,
+        type: "analysis",
+      },
+      setTabs,
+      setActiveTab,
+      pgn: record.moves,
+      headers: record,
+      gameOrigin: {
+        kind: "database",
+        database: file,
+        gameId: record.id,
+      },
+    });
+    navigate({ to: "/" });
+  }
 
   useHotkeys([
     [
@@ -85,43 +111,102 @@ function GameTable() {
     ],
   ]);
 
+  const noGamesText = error
+    ? `${t("Common.Error")}: ${error instanceof Error ? error.message : String(error)}`
+    : t("Databases.Game.NoneFound");
+
+  const playerSearch = (
+    <PlayerSearchInput
+      value={query?.player1 ?? undefined}
+      setValue={(value) => setQuery({ ...query, player1: value })}
+      rightSection={
+        <SideInput
+          sides={query.sides!}
+          setSides={(value) => setQuery({ ...query, sides: value })}
+          label="Player"
+        />
+      }
+      label={t("Common.Search")}
+      file={file}
+    />
+  );
+
+  const opponentSearch = (
+    <PlayerSearchInput
+      value={query?.player2 ?? undefined}
+      setValue={(value) => setQuery({ ...query, player2: value })}
+      rightSection={
+        <SideInput
+          sides={query.sides!}
+          setSides={(value) => setQuery({ ...query, sides: value })}
+          label="Opponent"
+        />
+      }
+      label={portrait ? t("Databases.Player.Two") : t("Common.Search")}
+      file={file}
+    />
+  );
+
+  // Portrait: rows instead of the datatable, and a tap opens the board directly
+  // rather than a preview pane there is no room for.
+  if (portrait) {
+    return (
+      <GridLayout
+        search={
+          <MobileFilterHeader
+            opened={filtersOpened}
+            setOpened={setFiltersOpened}
+            search={playerSearch}
+            filters={
+              <>
+                {opponentSearch}
+                <MobileGameFilters
+                  range1={query.range1}
+                  range2={query.range2}
+                  outcome={query.outcome}
+                  startDate={query.start_date}
+                  endDate={query.end_date}
+                  setRange1={(range1) => setQuery({ ...query, range1 })}
+                  setRange2={(range2) => setQuery({ ...query, range2 })}
+                  setOutcome={(outcome) => setQuery({ ...query, outcome })}
+                  setStartDate={(start_date) => setQuery({ ...query, start_date })}
+                  setEndDate={(end_date) => setQuery({ ...query, end_date })}
+                />
+              </>
+            }
+          />
+        }
+        table={
+          <MobileRowList
+            isLoading={isLoading}
+            empty={noGamesText}
+            page={page}
+            totalPages={Math.ceil((count ?? 0) / pageSize)}
+            onPageChange={(page) => setQuery({ ...query, options: { ...query.options!, page } })}
+          >
+            {games.map((game) => (
+              <MobileGameRow key={game.id} game={game} onClick={() => openGame(game)} />
+            ))}
+          </MobileRowList>
+        }
+        preview={null}
+      />
+    );
+  }
+
   return (
     <GridLayout
       search={
         <Flex style={{ gap: 20 }}>
           <Box style={{ flexGrow: 1 }}>
             <Group grow>
-              <PlayerSearchInput
-                value={query?.player1 ?? undefined}
-                setValue={(value) => setQuery({ ...query, player1: value })}
-                rightSection={
-                  <SideInput
-                    sides={query.sides!}
-                    setSides={(value) => setQuery({ ...query, sides: value })}
-                    label="Player"
-                  />
-                }
-                label={t("Common.Search")}
-                file={file}
-              />
-              <PlayerSearchInput
-                value={query?.player2 ?? undefined}
-                setValue={(value) => setQuery({ ...query, player2: value })}
-                rightSection={
-                  <SideInput
-                    sides={query.sides!}
-                    setSides={(value) => setQuery({ ...query, sides: value })}
-                    label="Opponent"
-                  />
-                }
-                label={t("Common.Search")}
-                file={file}
-              />
+              {playerSearch}
+              {opponentSearch}
             </Group>
             <Collapse in={openedSettings} mx={10}>
               <Stack mt="md">
                 <Group grow>
-                  <InputWrapper label="ELO">
+                  <InputWrapper label={t("Databases.Player.ELO")}>
                     <RangeSlider
                       step={10}
                       min={0}
@@ -136,7 +221,7 @@ function GameTable() {
                     />
                   </InputWrapper>
 
-                  <InputWrapper label="ELO">
+                  <InputWrapper label={t("Databases.Player.ELO")}>
                     <RangeSlider
                       step={10}
                       min={0}
@@ -152,7 +237,7 @@ function GameTable() {
                   </InputWrapper>
                 </Group>
                 <Select
-                  label="Result"
+                  label={t("Board.Database.Local.Result")}
                   value={query.outcome}
                   onChange={(value) =>
                     setQuery({
@@ -161,17 +246,23 @@ function GameTable() {
                     })
                   }
                   clearable
-                  placeholder="Select result"
+                  placeholder={t("Board.Database.Local.Result.Any")}
                   data={[
-                    { label: "White wins", value: "1-0" },
-                    { label: "Black wins", value: "0-1" },
-                    { label: "Draw", value: "1/2-1/2" },
+                    {
+                      label: t("Board.Database.Local.Result.WhiteWon"),
+                      value: "1-0",
+                    },
+                    {
+                      label: t("Board.Database.Local.Result.BlackWon"),
+                      value: "0-1",
+                    },
+                    { label: t("Board.Analysis.Tablebase.Draw"), value: "1/2-1/2" },
                   ]}
                 />
                 <Group>
                   <DateInput
-                    label="From"
-                    placeholder="Start date"
+                    label={t("Common.From")}
+                    placeholder={t("Common.StartDate")}
                     clearable
                     valueFormat="YYYY-MM-DD"
                     value={query.start_date ? dayjs(query.start_date, "YYYY.MM.DD").toDate() : null}
@@ -183,8 +274,8 @@ function GameTable() {
                     }
                   />
                   <DateInput
-                    label="To"
-                    placeholder="End date"
+                    label={t("Common.To")}
+                    placeholder={t("Common.EndDate")}
                     clearable
                     valueFormat="YYYY-MM-DD"
                     value={query.end_date ? dayjs(query.end_date, "YYYY.MM.DD").toDate() : null}
@@ -210,24 +301,7 @@ function GameTable() {
           highlightOnHover
           records={games}
           fetching={isLoading}
-          onRowDoubleClick={({ record }) => {
-            createTab({
-              tab: {
-                name: `${record.white} - ${record.black}`,
-                type: "analysis",
-              },
-              setTabs,
-              setActiveTab,
-              pgn: record.moves,
-              headers: record,
-              gameOrigin: {
-                kind: "database",
-                database: file,
-                gameId: record.id,
-              },
-            });
-            navigate({ to: "/" });
-          }}
+          onRowDoubleClick={({ record }) => openGame(record)}
           columns={[
             {
               accessor: "white",
@@ -237,7 +311,7 @@ function GameTable() {
                     {white}
                   </Text>
                   <Text size="xs" c="dimmed">
-                    {white_elo === 0 ? "Unrated" : white_elo}
+                    {white_elo === 0 ? t("Common.Unrated") : white_elo}
                   </Text>
                 </div>
               ),
@@ -250,7 +324,7 @@ function GameTable() {
                     {black}
                   </Text>
                   <Text size="xs" c="dimmed">
-                    {black_elo === 0 ? "Unrated" : black_elo}
+                    {black_elo === 0 ? t("Common.Unrated") : black_elo}
                   </Text>
                 </div>
               ),
@@ -260,19 +334,15 @@ function GameTable() {
               accessor: "result",
               render: ({ result }) => result?.replaceAll("1/2", "½"),
             },
-            { accessor: "ply_count", title: "Plies", sortable: true },
+            { accessor: "ply_count", title: t("Databases.Game.Plies"), sortable: true },
             { accessor: "event" },
             { accessor: "site" },
           ]}
           rowClassName={(_, i) => (i === selectedGame ? classes.selected : "")}
-          noRecordsText={
-            error
-              ? `${t("Common.Error")}: ${error instanceof Error ? error.message : String(error)}`
-              : "No games found"
-          }
+          noRecordsText={noGamesText}
           totalRecords={count!}
-          recordsPerPage={query.options?.pageSize ?? 25}
-          page={query.options?.page ?? 1}
+          recordsPerPage={pageSize}
+          page={page}
           onPageChange={(page) =>
             setQuery({
               ...query,

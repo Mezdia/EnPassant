@@ -38,7 +38,13 @@ export default defineConfig({
     build: {
         minify: isDebug ? false : "esbuild",
         sourcemap: isDebug ? "inline" : false,
-        target: process.env.TAURI_ENV_PLATFORM == "windows" ? "chrome105" : "safari13",
+        // Android ships a Chromium WebView (updatable via Play Store), so it takes
+        // the same modern target as Windows; only Apple/webkit2gtk needs safari13.
+        target:
+            process.env.TAURI_ENV_PLATFORM == "windows" ||
+            process.env.TAURI_ENV_PLATFORM == "android"
+                ? "chrome105"
+                : "safari13",
     },
     resolve: {
         alias: {

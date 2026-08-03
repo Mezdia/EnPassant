@@ -1,5 +1,6 @@
 import { Group, Stack, Text } from "@mantine/core";
 import { useEffect, useMemo, useState } from "react";
+import { useTranslation } from "react-i18next";
 import {
   Area,
   AreaChart,
@@ -12,6 +13,7 @@ import {
 import dayjs from "dayjs";
 import type { PlayerGameInfo } from "@/bindings";
 import { getTimeControl } from "@/utils/timeControl";
+import { useIsMobilePortrait } from "@/utils/useIsLandscape";
 import DateRangeTabs, { DateRange } from "./DateRangeTabs";
 import {
   gradientStops,
@@ -54,6 +56,8 @@ function RatingsPanel({
   const [website, setWebsite] = useState<string | null>(null);
   const [account, setAccount] = useState<string | null>("All accounts");
   const [timeRange, setTimeRange] = useState({ start: 0, end: 0 });
+  const portrait = useIsMobilePortrait();
+  const { t } = useTranslation();
 
   const dates = useMemo(() => {
     const timezoneOffset = new Date().getTimezoneOffset() * 60 * 1000; // milliseconds
@@ -161,14 +165,14 @@ function RatingsPanel({
       <DateRangeTabs timeRange={dateRange} onTimeRangeChange={setDateRange} />
 
       <Text pt="md" fw="bold" fz="lg" ta="center">
-        {summary.games} Games
+        {t("Home.Personal.GameCount", { count: summary.games, number: summary.games })}
       </Text>
       {dates.length > 1 && (
         <>
           {summary.games > 0 && (
             <ResultsChart won={summary.won} draw={summary.draw} lost={summary.lost} size="2rem" />
           )}
-          <ResponsiveContainer width="100%" height={300}>
+          <ResponsiveContainer width="100%" height={portrait ? 200 : 300}>
             <AreaChart data={ratingData}>
               <defs>
                 <linearGradient {...linearGradientProps}>
@@ -183,9 +187,24 @@ function RatingsPanel({
                 domain={[dates[timeRange.start], dates[timeRange.end]]}
                 tickFormatter={(date) => new Date(date).toLocaleDateString()}
                 type="number"
+                angle={portrait ? -45 : 0}
+                textAnchor={portrait ? "end" : "middle"}
+                height={portrait ? 56 : undefined}
+                tick={{ fontSize: portrait ? 10 : undefined }}
               />
-              {playerEloDomain == null && <YAxis />}
-              {playerEloDomain != null && <YAxis domain={playerEloDomain} />}
+              {playerEloDomain == null && (
+                <YAxis
+                  width={portrait ? 36 : undefined}
+                  tick={{ fontSize: portrait ? 10 : undefined }}
+                />
+              )}
+              {playerEloDomain != null && (
+                <YAxis
+                  domain={playerEloDomain}
+                  width={portrait ? 36 : undefined}
+                  tick={{ fontSize: portrait ? 10 : undefined }}
+                />
+              )}
               <Tooltip
                 contentStyle={tooltipContentStyle}
                 cursor={tooltipCursorStyle}

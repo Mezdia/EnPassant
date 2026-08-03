@@ -1,5 +1,6 @@
-import { useCallback, useRef, useState } from "react";
 import cx from "clsx";
+import { atom, useAtom, useSetAtom } from "jotai";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useIsLandscape } from "@/utils/useIsLandscape";
 import classes from "./MobileBoardLayout.module.css";
 
@@ -23,6 +24,51 @@ const SNAP_POINTS: readonly number[] = [0.12, 0.5, 0.88];
 const PEEK = SNAP_POINTS[0];
 const MAX_FRACTION = SNAP_POINTS[SNAP_POINTS.length - 1];
 
+const clamp = (f: number) => Math.min(MAX_FRACTION, Math.max(PEEK, f));
+
+/** Nearest snap point to `f`. */
+function snapNearest(f: number) {
+  let best = SNAP_POINTS[0];
+  let bestDist = Math.abs(f - best);
+  for (const p of SNAP_POINTS) {
+    const d = Math.abs(f - p);
+    if (d < bestDist) {
+      best = p;
+      bestDist = d;
+    }
+  }
+  return best;
+}
+
+/**
+ * How far the portrait bottom sheet is open, as a fraction of the viewport.
+ *
+ * Kept in an atom rather than local state so board screens can open it when the
+ * panel — not the board — is the thing the user came for (the Play setup wizard
+ * is a whole form, useless at the 12% peek height). They reach the sheet through
+ * a portal, so there is no prop path from here to them.
+ */
+export const mobileSheetFractionAtom = atom<number>(PEEK);
+
+/** Snap point constants for callers that want to open/collapse the sheet. */
+export const SHEET_PEEK = PEEK;
+export const SHEET_HALF = SNAP_POINTS[1];
+export const SHEET_FULL = MAX_FRACTION;
+
+/**
+ * Holds the portrait sheet open at `fraction` while `enabled`, collapsing back
+ * to the peek height afterwards. Harmless on desktop and in landscape, where
+ * nothing reads the atom.
+ */
+export function useMobileSheetOpen(fraction: number, enabled = true) {
+  const setFraction = useSetAtom(mobileSheetFractionAtom);
+  useEffect(() => {
+    if (!enabled) return;
+    setFraction(fraction);
+    return () => setFraction(PEEK);
+  }, [enabled, fraction, setFraction]);
+}
+
 export function MobileBoardLayout() {
   const landscape = useIsLandscape();
 
@@ -45,24 +91,9 @@ export function MobileBoardLayout() {
 
 function PortraitLayout() {
   const rootRef = useRef<HTMLDivElement>(null);
-  const [fraction, setFraction] = useState<number>(PEEK);
+  const [fraction, setFraction] = useAtom(mobileSheetFractionAtom);
   const [dragging, setDragging] = useState(false);
   const dragState = useRef<{ startY: number; startFraction: number } | null>(null);
-
-  const clamp = (f: number) => Math.min(MAX_FRACTION, Math.max(PEEK, f));
-
-  const snapNearest = useCallback((f: number) => {
-    let best = SNAP_POINTS[0];
-    let bestDist = Math.abs(f - best);
-    for (const p of SNAP_POINTS) {
-      const d = Math.abs(f - p);
-      if (d < bestDist) {
-        best = p;
-        bestDist = d;
-      }
-    }
-    return best;
-  }, []);
 
   const onPointerDown = useCallback(
     (e: React.PointerEvent) => {
@@ -84,7 +115,7 @@ function PortraitLayout() {
       const dy = e.clientY - drag.startY;
       setFraction(clamp(drag.startFraction - dy / h));
     },
-    [clamp],
+    [setFraction],
   );
 
   const onPointerUp = useCallback(
@@ -95,7 +126,7 @@ function PortraitLayout() {
       e.currentTarget.releasePointerCapture(e.pointerId);
       setFraction((f) => snapNearest(f));
     },
-    [snapNearest],
+    [setFraction],
   );
 
   return (

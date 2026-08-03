@@ -1,5 +1,6 @@
 import { Group, Stack, Text } from "@mantine/core";
 import { useState } from "react";
+import { useTranslation } from "react-i18next";
 import {
   Bar,
   BarChart,
@@ -13,6 +14,7 @@ import {
 import type { NameType, ValueType } from "recharts/types/component/DefaultTooltipContent";
 import type { PlayerGameInfo, StatsData } from "@/bindings";
 import { getTimeControl } from "@/utils/timeControl";
+import { useIsMobilePortrait } from "@/utils/useIsLandscape";
 import ResultsChart from "./ResultsChart";
 import TimeControlSelector from "./TimeControlSelector";
 import WebsiteAccountSelector from "./WebsiteAccountSelector";
@@ -92,6 +94,7 @@ function OverviewPanel({
   const [website, setWebsite] = useState<string | null>("All websites");
   const [account, setAccount] = useState<string | null>("All accounts");
   const [timeControl, setTimeControl] = useState<string | null>(null);
+  const { t } = useTranslation();
 
   const games =
     info?.site_stats_data
@@ -125,7 +128,7 @@ function OverviewPanel({
       </Group>
 
       <Text pt="md" fw="bold" fz="lg" ta="center">
-        {total} Games
+        {t("Home.Personal.GameCount", { count: total, number: total })}
       </Text>
 
       {total > 0 && (
@@ -174,6 +177,7 @@ const DateChartTooltip = ({
 
 function DateChart({ dataPerMonth }: { dataPerMonth: { name: string; count: number }[] }) {
   const [selectedYear, setSelectedYear] = useState<number | null>(null);
+  const portrait = useIsMobilePortrait();
 
   let data = fillMissingMonths(dataPerMonth);
 
@@ -183,8 +187,10 @@ function DateChart({ dataPerMonth }: { dataPerMonth: { name: string; count: numb
     data = mergeYears(data);
   }
 
+  // A fixed 300px eats most of a phone screen, and the month labels don't fit
+  // horizontally either, so portrait gets a shorter chart with angled ticks.
   return (
-    <ResponsiveContainer width="100%" height={300}>
+    <ResponsiveContainer width="100%" height={portrait ? 200 : 300}>
       <BarChart
         data={data}
         onClick={(e) => {
@@ -195,8 +201,15 @@ function DateChart({ dataPerMonth }: { dataPerMonth: { name: string; count: numb
         }}
       >
         <CartesianGrid strokeDasharray="3" vertical={false} />
-        <XAxis dataKey="name" />
-        <YAxis />
+        <XAxis
+          dataKey="name"
+          angle={portrait ? -45 : 0}
+          textAnchor={portrait ? "end" : "middle"}
+          height={portrait ? 50 : undefined}
+          interval="preserveStartEnd"
+          tick={{ fontSize: portrait ? 10 : undefined }}
+        />
+        <YAxis width={portrait ? 32 : undefined} tick={{ fontSize: portrait ? 10 : undefined }} />
         <Tooltip
           content={(props) => (
             <DateChartTooltip {...props} isYearSelected={selectedYear === null} />

@@ -49,16 +49,19 @@ import {
 } from "@/state/atoms";
 import { positionFromFen } from "@/utils/chessops";
 import { formatThemeLabel, formatTime } from "@/utils/format";
+import { isDesktop } from "@/utils/platform";
 import { type Completion, getPuzzleDatabases, type Puzzle } from "@/utils/puzzles";
 import { createTab } from "@/utils/tabs";
 import { defaultTree } from "@/utils/treeReducer";
 import { unwrap } from "@/utils/unwrap";
+import { useIsLandscape } from "@/utils/useIsLandscape";
 import ChallengeHistory from "../common/ChallengeHistory";
 import ConfirmModal from "../common/ConfirmModal";
 import GameNotation from "../common/GameNotation";
 import MoveControls from "../common/MoveControls";
 import { TreeStateContext } from "../common/TreeStateContext";
 import AddPuzzle from "./AddPuzzle";
+import { MobilePuzzleControls } from "./MobilePuzzleControls";
 import PuzzleBoard from "./PuzzleBoard";
 
 function Puzzles({ id }: { id: string }) {
@@ -80,6 +83,9 @@ function Puzzles({ id }: { id: string }) {
   const [selectedDb, setSelectedDb] = useAtom(selectedPuzzleDbAtom);
 
   const [settingsOpened, setSettingsOpened] = useState(false);
+  /** Mobile only: the Filters sheet that replaces the desktop settings accordion. */
+  const [filtersOpened, setFiltersOpened] = useState(false);
+  const landscape = useIsLandscape();
 
   useEffect(() => {
     getPuzzleDatabases().then((databases) => {
@@ -290,6 +296,220 @@ function Puzzles({ id }: { id: string }) {
     return nextMove;
   };
 
+  /** Progressive hint on the next move: circle → arrow → cleared. */
+  function showHint() {
+    solutionAbortRef.current?.abort();
+    setIsPlayingSolution(false);
+    const curPuzzle = puzzles[currentPuzzle];
+
+    if (curPuzzle.completion === "incomplete") {
+      changeCompletion("incorrect");
+    }
+
+    if (currentlyOnLastMoveOrNoLastMove()) return;
+
+    const nextMove = nextMoveUci();
+    if (!nextMove) return;
+
+    const from = makeSquare(nextMove.from);
+    const to = makeSquare(nextMove.to);
+    const currentShapes = store.getState().currentNode().shapes;
+
+    const hasCircle = currentShapes.some((s) => s.orig === from && !s.dest);
+    const hasArrow = currentShapes.some((s) => s.orig === from && s.dest === to);
+
+    if (hasArrow) {
+      setShapes(currentShapes.filter((s) => !(s.orig === from && (!s.dest || s.dest === to))));
+    } else if (hasCircle) {
+      setShapes([
+        ...currentShapes.filter((s) => !(s.orig === from && !s.dest)),
+        { orig: from, dest: to, brush: "green" },
+      ]);
+    } else {
+      setShapes([...currentShapes, { orig: from, dest: undefined, brush: "green" }]);
+    }
+  }
+
+  /** Replays the whole solution from the start, one move every 500ms. */
+  async function playSolution() {
+    solutionAbortRef.current?.abort();
+    const abortController = new AbortController();
+    solutionAbortRef.current = abortController;
+
+    const curPuzzle = puzzles[currentPuzzle];
+    if (curPuzzle.completion === "incomplete") {
+      changeCompletion("incorrect");
+    }
+    setIsPlayingSolution(true);
+    goToStart();
+    for (let i = 0; i < curPuzzle.moves.length; i++) {
+      if (abortController.signal.aborted) break;
+      makeMove({
+        payload: parseUci(curPuzzle.moves[i])!,
+        mainline: true,
+      });
+      await new Promise((r) => setTimeout(r, 500));
+    }
+    setIsPlayingSolution(false);
+  }
+
+  function analyzePosition() {
+    const curPuzzle = puzzles[currentPuzzle];
+    if (!curPuzzle) return;
+
+    createTab({
+      tab: {
+        name: "Puzzle Analysis",
+        type: "analysis",
+      },
+      setTabs,
+      setActiveTab,
+      pgn: curPuzzle.moves.join(" "),
+      headers: {
+        ...defaultTree().headers,
+        fen: curPuzzle.fen,
+        orientation: parseFen(curPuzzle.fen).unwrap().turn === "white" ? "black" : "white",
+      },
+    });
+  }
+
+  function clearSession() {
+    setPuzzles([]);
+    reset();
+    setTimerStart(null);
+    setIsPlayingSolution(false);
+  }
+
+  const hintDisabled =
+    puzzles.length === 0 || currentlyOnLastMoveOrNoLastMove() || isPlayingSolution;
+  const solutionDisabled = puzzles.length === 0;
+  const displayedRating =
+    isPuzzleIncomplete && hideRating && puzzles[currentPuzzle]?.rating
+      ? "?"
+      : String(puzzles[currentPuzzle]?.rating ?? "-");
+
+  const mobile = !isDesktop();
+
+  const addPuzzleModal = (
+    <AddPuzzle
+      puzzleDbs={puzzleDbs}
+      opened={addOpened}
+      setOpened={setAddOpened}
+      setPuzzleDbs={setPuzzleDbs}
+    />
+  );
+
+  const deleteDbModal = (
+    <ConfirmModal
+      title="Delete Puzzle Database"
+      description="Are you sure you want to delete this puzzle database?"
+      opened={deleteModalOpened}
+      onClose={() => setDeleteModalOpened(false)}
+      onConfirm={async () => {
+        if (selectedDb) {
+          await commands.deletePuzzleDatabase(selectedDb);
+          setPuzzleDbs((dbs) => dbs.filter((db) => db.path !== selectedDb));
+          setSelectedDb(null);
+          clearSession();
+        }
+        setDeleteModalOpened(false);
+      }}
+    />
+  );
+
+  const puzzleHistory = (
+    <ChallengeHistory
+      challenges={puzzles.map((p) => ({
+        ...p,
+        label: p.rating?.toString() ?? "-",
+      }))}
+      current={currentPuzzle}
+      select={(i) => {
+        if (i === currentPuzzle) return;
+        solutionAbortRef.current?.abort();
+        setIsPlayingSolution(false);
+        setCurrentPuzzle(i);
+        setPuzzle(puzzles[i]);
+        if (puzzles[i].completion === "incomplete") {
+          setTimerStart(Date.now() - (puzzles[i].timeSpent || 0));
+        } else {
+          setTimerStart(null);
+        }
+      }}
+    />
+  );
+
+  if (mobile) {
+    const controls = (
+      <>
+        {addPuzzleModal}
+        {deleteDbModal}
+        <MobilePuzzleControls
+          puzzleDbs={puzzleDbs}
+          availableThemes={availableThemes}
+          themesTableMissing={themesTableMissing}
+          stats={{
+            rating: displayedRating,
+            accuracy,
+            streak: currentStreak,
+            time: trackTime ? formatTime(elapsedTime) : null,
+            avgTime: trackTime && avgTimeSeconds > 0 ? `${avgTimeSeconds.toFixed(1)}s` : null,
+          }}
+          themes={!isPuzzleIncomplete ? (puzzles[currentPuzzle]?.themes ?? []) : []}
+          turnToMove={turnToMove ?? null}
+          onAddDatabase={() => setAddOpened(true)}
+          onDeleteDatabase={() => setDeleteModalOpened(true)}
+          onNewPuzzle={() => selectedDb && generatePuzzle(selectedDb, true)}
+          onAnalyze={analyzePosition}
+          onClearSession={clearSession}
+          onHint={showHint}
+          onViewSolution={playSolution}
+          hintDisabled={hintDisabled}
+          solutionDisabled={solutionDisabled}
+          filtersOpened={filtersOpened}
+          setFiltersOpened={setFiltersOpened}
+        />
+      </>
+    );
+
+    /** Capped so a long session's icon grid can never crowd out the board. */
+    const history = (
+      <Paper withBorder p="xs">
+        <ScrollArea.Autosize mah={110} offsetScrollbars>
+          {puzzleHistory}
+        </ScrollArea.Autosize>
+      </Paper>
+    );
+
+    return (
+      <>
+        <Portal target="#left" style={{ height: "100%" }}>
+          <PuzzleBoard
+            key={currentPuzzle}
+            puzzles={puzzles}
+            currentPuzzle={currentPuzzle}
+            changeCompletion={changeCompletion}
+            generatePuzzle={generatePuzzle}
+            db={selectedDb}
+          />
+        </Portal>
+        {/* Landscape mirrors the desktop columns: board + history left, controls
+            and notation in the right column. Portrait keeps the action rows
+            directly under the board and pushes the rest into the sheet. */}
+        <Portal target="#bottomRight">{landscape ? history : controls}</Portal>
+        <Portal target="#topRight" style={{ height: "100%" }}>
+          <Stack h="100%" gap="xs">
+            {landscape ? controls : history}
+            <Stack flex={1} gap="xs" style={{ minHeight: 0 }}>
+              <GameNotation />
+              <MoveControls readOnly />
+            </Stack>
+          </Stack>
+        </Portal>
+      </>
+    );
+  }
+
   return (
     <>
       <Portal target="#left" style={{ height: "100%" }}>
@@ -311,30 +531,8 @@ function Puzzles({ id }: { id: string }) {
             overflow: "hidden",
           }}
         >
-          <AddPuzzle
-            puzzleDbs={puzzleDbs}
-            opened={addOpened}
-            setOpened={setAddOpened}
-            setPuzzleDbs={setPuzzleDbs}
-          />
-          <ConfirmModal
-            title="Delete Puzzle Database"
-            description="Are you sure you want to delete this puzzle database?"
-            opened={deleteModalOpened}
-            onClose={() => setDeleteModalOpened(false)}
-            onConfirm={async () => {
-              if (selectedDb) {
-                await commands.deletePuzzleDatabase(selectedDb);
-                setPuzzleDbs((dbs) => dbs.filter((db) => db.path !== selectedDb));
-                setSelectedDb(null);
-                setPuzzles([]);
-                reset();
-                setTimerStart(null);
-                setIsPlayingSolution(false);
-              }
-              setDeleteModalOpened(false);
-            }}
-          />
+          {addPuzzleModal}
+          {deleteDbModal}
           <Group justify="space-between" pb="sm">
             <Select
               style={{ flex: 1 }}
@@ -356,7 +554,7 @@ function Puzzles({ id }: { id: string }) {
               }}
             />
             <Group gap="xs">
-              <Tooltip label="Delete database">
+              <Tooltip label={t("Puzzle.DeleteDatabase")}>
                 <ActionIcon
                   color="red"
                   disabled={!selectedDb}
@@ -383,10 +581,10 @@ function Puzzles({ id }: { id: string }) {
                   {themesTableMissing && (
                     <Alert
                       icon={<IconAlertTriangle />}
-                      title="Puzzle database outdated"
+                      title={t("Puzzle.DatabaseOutdated")}
                       color="yellow"
                     >
-                      This database does not support themes. Update to the latest puzzle DB.
+                      {t("Puzzle.DatabaseOutdated.Desc")}
                     </Alert>
                   )}
                   <div>
@@ -408,8 +606,8 @@ function Puzzles({ id }: { id: string }) {
                     />
                   </div>
                   <Select
-                    label="Theme"
-                    placeholder="All themes"
+                    label={t("Puzzle.Theme")}
+                    placeholder={t("Puzzle.AllThemes")}
                     data={availableThemes.map((theme) => ({
                       label: formatThemeLabel(theme),
                       value: theme,
@@ -545,122 +743,27 @@ function Puzzles({ id }: { id: string }) {
                 </ActionIcon>
               </Tooltip>
               <Tooltip label={t("Puzzle.AnalyzePosition")}>
-                <ActionIcon
-                  disabled={!selectedDb}
-                  onClick={() =>
-                    createTab({
-                      tab: {
-                        name: "Puzzle Analysis",
-                        type: "analysis",
-                      },
-                      setTabs,
-                      setActiveTab,
-                      pgn: puzzles[currentPuzzle]?.moves.join(" "),
-                      headers: {
-                        ...defaultTree().headers,
-                        fen: puzzles[currentPuzzle]?.fen,
-                        orientation:
-                          parseFen(puzzles[currentPuzzle].fen).unwrap().turn === "white"
-                            ? "black"
-                            : "white",
-                      },
-                    })
-                  }
-                >
+                <ActionIcon disabled={!selectedDb} onClick={analyzePosition}>
                   <IconZoomCheck />
                 </ActionIcon>
               </Tooltip>
               <Tooltip label={t("Puzzle.ClearSession")}>
-                <ActionIcon
-                  onClick={() => {
-                    setPuzzles([]);
-                    reset();
-                    setTimerStart(null);
-                    setIsPlayingSolution(false);
-                  }}
-                >
+                <ActionIcon onClick={clearSession}>
                   <IconX />
                 </ActionIcon>
               </Tooltip>
             </Group>
           </Group>
           <Group grow>
-            <Button
-              mt="sm"
-              variant="light"
-              fullWidth
-              onClick={async () => {
-                solutionAbortRef.current?.abort();
-                setIsPlayingSolution(false);
-                const abortController = new AbortController();
-                solutionAbortRef.current = abortController;
-                const curPuzzle = puzzles[currentPuzzle];
-
-                if (curPuzzle.completion === "incomplete") {
-                  changeCompletion("incorrect");
-                }
-
-                if (currentlyOnLastMoveOrNoLastMove()) return;
-
-                const nextMove = nextMoveUci();
-                if (!nextMove) return;
-
-                const from = makeSquare(nextMove.from);
-                const to = makeSquare(nextMove.to);
-                const currentShapes = store.getState().currentNode().shapes;
-
-                // Progressive hints: circle > arrow > clear
-                const hasCircle = currentShapes.some((s) => s.orig === from && !s.dest);
-                const hasArrow = currentShapes.some((s) => s.orig === from && s.dest === to);
-
-                if (hasArrow) {
-                  // Third click: Remove all hint shapes for this move
-                  setShapes(
-                    currentShapes.filter((s) => !(s.orig === from && (!s.dest || s.dest === to))),
-                  );
-                } else if (hasCircle) {
-                  // Second click: Replace circle with arrow
-                  setShapes([
-                    ...currentShapes.filter((s) => !(s.orig === from && !s.dest)),
-                    { orig: from, dest: to, brush: "green" },
-                  ]);
-                } else {
-                  // First click: Add circle
-                  setShapes([...currentShapes, { orig: from, dest: undefined, brush: "green" }]);
-                }
-              }}
-              disabled={
-                puzzles.length === 0 || currentlyOnLastMoveOrNoLastMove() || isPlayingSolution
-              }
-            >
+            <Button mt="sm" variant="light" fullWidth onClick={showHint} disabled={hintDisabled}>
               {t("Puzzle.GetAHint")}
             </Button>
             <Button
               mt="sm"
               variant="light"
               fullWidth
-              onClick={async () => {
-                solutionAbortRef.current?.abort();
-                const abortController = new AbortController();
-                solutionAbortRef.current = abortController;
-
-                const curPuzzle = puzzles[currentPuzzle];
-                if (curPuzzle.completion === "incomplete") {
-                  changeCompletion("incorrect");
-                }
-                setIsPlayingSolution(true);
-                goToStart();
-                for (let i = 0; i < curPuzzle.moves.length; i++) {
-                  if (abortController.signal.aborted) break;
-                  makeMove({
-                    payload: parseUci(curPuzzle.moves[i])!,
-                    mainline: true,
-                  });
-                  await new Promise((r) => setTimeout(r, 500));
-                }
-                setIsPlayingSolution(false);
-              }}
-              disabled={puzzles.length === 0}
+              onClick={playSolution}
+              disabled={solutionDisabled}
             >
               {t("Puzzle.ViewSolution")}
             </Button>
@@ -671,25 +774,7 @@ function Puzzles({ id }: { id: string }) {
         <Stack h="100%" gap="xs">
           <Paper withBorder p="md" mih="5rem">
             <ScrollArea h="100%" offsetScrollbars>
-              <ChallengeHistory
-                challenges={puzzles.map((p) => ({
-                  ...p,
-                  label: p.rating?.toString() ?? "-",
-                }))}
-                current={currentPuzzle}
-                select={(i) => {
-                  if (i === currentPuzzle) return;
-                  solutionAbortRef.current?.abort();
-                  setIsPlayingSolution(false);
-                  setCurrentPuzzle(i);
-                  setPuzzle(puzzles[i]);
-                  if (puzzles[i].completion === "incomplete") {
-                    setTimerStart(Date.now() - (puzzles[i].timeSpent || 0));
-                  } else {
-                    setTimerStart(null);
-                  }
-                }}
-              />
+              {puzzleHistory}
             </ScrollArea>
           </Paper>
           <Stack flex={1} gap="xs">

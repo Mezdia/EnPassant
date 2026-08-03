@@ -1,4 +1,4 @@
-import { Center, Flex, Text, TextInput } from "@mantine/core";
+import { Center, Flex, Group, Text, TextInput } from "@mantine/core";
 import { IconSearch } from "@tabler/icons-react";
 import { DataTable } from "mantine-datatable";
 import { useContext } from "react";
@@ -8,14 +8,17 @@ import useSWR from "swr";
 import { useStore } from "zustand";
 import { commands, type Event, type TournamentSort } from "@/bindings";
 import { unwrap } from "@/utils/unwrap";
+import { useIsMobilePortrait } from "@/utils/useIsLandscape";
 import { DatabaseViewStateContext } from "./DatabaseViewStateContext";
 import GridLayout from "./GridLayout";
+import { MobileRow, MobileRowList } from "./MobileList";
 import classes from "./styles.module.css";
 import TournamentCard from "./TournamentCard";
 
 function TournamentTable() {
   const { t } = useTranslation();
   const store = useContext(DatabaseViewStateContext)!;
+  const portrait = useIsMobilePortrait();
 
   const file = useStore(store, (s) => s.database?.file)!;
   const query = useStore(store, (s) => s.tournaments.query);
@@ -49,24 +52,67 @@ function TournamentTable() {
     }
   });
 
+  const noTournamentsText = error
+    ? `${t("Common.Error")}: ${error instanceof Error ? error.message : String(error)}`
+    : t("Databases.Tournament.NoneFound");
+
+  const nameSearch = (
+    <TextInput
+      style={{ flexGrow: 1 }}
+      placeholder={t("Common.Search")}
+      leftSection={<IconSearch size="1rem" />}
+      value={query.name ?? ""}
+      onChange={(v) =>
+        setQuery({
+          ...query,
+          name: v.currentTarget.value,
+        })
+      }
+    />
+  );
+
+  const preview =
+    tournament != null ? (
+      <TournamentCard tournament={tournament} file={file} key={tournament.id} />
+    ) : (
+      <Center h="100%">
+        <Text>{t("Databases.Tournament.NoSelection")}</Text>
+      </Center>
+    );
+
+  // Portrait: name rows drilling into the tournament card. There are no filters
+  // here, so the search input stands alone.
+  if (portrait) {
+    return (
+      <GridLayout
+        selected={tournament != null}
+        onBack={() => setSelected(undefined)}
+        search={<Group gap="xs">{nameSearch}</Group>}
+        table={
+          <MobileRowList
+            isLoading={isLoading}
+            empty={noTournamentsText}
+            page={query.options.page ?? 1}
+            totalPages={Math.ceil((count ?? 0) / (query.options.pageSize ?? 25))}
+            onPageChange={(page) => setQuery({ ...query, options: { ...query.options, page } })}
+          >
+            {tournaments.map((item) => (
+              <MobileRow key={item.id} onClick={() => setSelected(item.id)}>
+                <Text size="sm" fw={500} truncate>
+                  {item.name}
+                </Text>
+              </MobileRow>
+            ))}
+          </MobileRowList>
+        }
+        preview={preview}
+      />
+    );
+  }
+
   return (
     <GridLayout
-      search={
-        <Flex style={{ alignItems: "center", gap: 10 }}>
-          <TextInput
-            style={{ flexGrow: 1 }}
-            placeholder={t("Common.Search")}
-            leftSection={<IconSearch size="1rem" />}
-            value={query.name ?? ""}
-            onChange={(v) =>
-              setQuery({
-                ...query,
-                name: v.currentTarget.value,
-              })
-            }
-          />
-        </Flex>
-      }
+      search={<Flex style={{ alignItems: "center", gap: 10 }}>{nameSearch}</Flex>}
       table={
         <DataTable<Event>
           withTableBorder
@@ -78,11 +124,7 @@ function TournamentTable() {
             { accessor: "name", sortable: true },
           ]}
           rowClassName={(t) => (t.id === selected ? classes.selected : "")}
-          noRecordsText={
-            error
-              ? `${t("Common.Error")}: ${error instanceof Error ? error.message : String(error)}`
-              : t("Databases.Tournament.NoneFound")
-          }
+          noRecordsText={noTournamentsText}
           totalRecords={count!}
           recordsPerPage={query.options.pageSize ?? 25}
           page={query.options.page ?? 1}
@@ -121,15 +163,7 @@ function TournamentTable() {
           }}
         />
       }
-      preview={
-        tournament != null ? (
-          <TournamentCard tournament={tournament} file={file} key={tournament.id} />
-        ) : (
-          <Center h="100%">
-            <Text>{t("Databases.Tournament.NoSelection")}</Text>
-          </Center>
-        )
-      }
+      preview={preview}
     />
   );
 }

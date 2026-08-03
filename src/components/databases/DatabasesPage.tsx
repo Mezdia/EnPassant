@@ -22,7 +22,13 @@ import {
   Tooltip,
 } from "@mantine/core";
 import { useDebouncedValue, useToggle } from "@mantine/hooks";
-import { IconArrowRight, IconDatabase, IconPlus, IconSearch } from "@tabler/icons-react";
+import {
+  IconArrowLeft,
+  IconArrowRight,
+  IconDatabase,
+  IconPlus,
+  IconSearch,
+} from "@tabler/icons-react";
 import { Link, useNavigate } from "@tanstack/react-router";
 import { basename } from "@tauri-apps/api/path";
 import { open as openDialog, save } from "@tauri-apps/plugin-dialog";
@@ -41,6 +47,7 @@ import { useActiveDatabaseViewStore } from "@/state/store/database";
 import { getDatabases, type SuccessDatabaseInfo } from "@/utils/db";
 import { formatBytes, formatNumber } from "@/utils/format";
 import { unwrap } from "@/utils/unwrap";
+import { useIsMobilePortrait } from "@/utils/useIsLandscape";
 import ConfirmModal from "../common/ConfirmModal";
 import GenericCard from "../common/GenericCard";
 import OpenFolderButton from "../common/OpenFolderButton";
@@ -49,6 +56,7 @@ import { PlayerSearchInput } from "./PlayerSearchInput";
 
 export default function DatabasesPage() {
   const { t } = useTranslation();
+  const portrait = useIsMobilePortrait();
 
   const { data: databases, isLoading, mutate } = useSWR("databases", () => getDatabases());
 
@@ -154,154 +162,171 @@ export default function DatabasesPage() {
       </Group>
 
       <Group grow flex={1} style={{ overflow: "hidden" }} align="start" px="md" pb="md">
-        <Paper withBorder style={{ borderWidth: 2 }} h="100%">
-          <Stack gap={0} h="100%" style={{ overflow: "hidden" }}>
-            <Group p="xs" gap="xs">
-              <Input
-                size="sm"
-                style={{ flexGrow: 1 }}
-                leftSection={<IconSearch size="1rem" />}
-                placeholder={t("Common.Search")}
-                value={search}
-                onChange={(e) => setSearch(e.currentTarget.value)}
-              />
-              <Tooltip label={t("Common.AddNew")}>
-                <ActionIcon
-                  variant="default"
-                  size="lg"
-                  onClick={() => setOpen(true)}
-                  disabled={conversionState.inProgress}
-                >
-                  <IconPlus size="1rem" />
-                </ActionIcon>
-              </Tooltip>
-            </Group>
-            <Divider />
-            {conversionState.inProgress && (
-              <>
-                <Group px="xs" py={6} gap="xs" justify="space-between">
-                  <Group gap={6}>
-                    <Loader size="xs" />
-                    <Text size="sm">
-                      {conversionState.sourceFileName || conversionState.targetDatabaseTitle
-                        ? `${t("Databases.Add.Convert")}: ${conversionState.sourceFileName ?? conversionState.targetDatabaseTitle}`
-                        : t("Databases.Add.Convert")}
-                    </Text>
+        {/* Portrait keeps one pane at a time: the card list, or the settings for
+            the card that was tapped. Landscape and desktop show both. */}
+        {(!portrait || selectedDatabase === null) && (
+          <Paper withBorder style={{ borderWidth: 2 }} h="100%">
+            <Stack gap={0} h="100%" style={{ overflow: "hidden" }}>
+              <Group p="xs" gap="xs">
+                <Input
+                  size="sm"
+                  style={{ flexGrow: 1 }}
+                  leftSection={<IconSearch size="1rem" />}
+                  placeholder={t("Common.Search")}
+                  value={search}
+                  onChange={(e) => setSearch(e.currentTarget.value)}
+                />
+                <Tooltip label={t("Common.AddNew")}>
+                  <ActionIcon
+                    variant="default"
+                    size="lg"
+                    onClick={() => setOpen(true)}
+                    disabled={conversionState.inProgress}
+                  >
+                    <IconPlus size="1rem" />
+                  </ActionIcon>
+                </Tooltip>
+              </Group>
+              <Divider />
+              {conversionState.inProgress && (
+                <>
+                  <Group px="xs" py={6} gap="xs" justify="space-between">
+                    <Group gap={6}>
+                      <Loader size="xs" />
+                      <Text size="sm">
+                        {conversionState.sourceFileName || conversionState.targetDatabaseTitle
+                          ? `${t("Databases.Add.Convert")}: ${conversionState.sourceFileName ?? conversionState.targetDatabaseTitle}`
+                          : t("Databases.Add.Convert")}
+                      </Text>
+                    </Group>
+                    {conversionState.totalGames > 0 && (
+                      <Text size="xs" c="dimmed">
+                        {conversionState.totalGames} games
+                        {conversionState.elapsedSeconds > 0
+                          ? ` • ${(conversionState.totalGames / conversionState.elapsedSeconds).toFixed(1)} games/s`
+                          : ""}
+                      </Text>
+                    )}
                   </Group>
-                  {conversionState.totalGames > 0 && (
-                    <Text size="xs" c="dimmed">
-                      {conversionState.totalGames} games
-                      {conversionState.elapsedSeconds > 0
-                        ? ` • ${(conversionState.totalGames / conversionState.elapsedSeconds).toFixed(1)} games/s`
-                        : ""}
-                    </Text>
+                  <Divider />
+                </>
+              )}
+              <ScrollArea flex={1}>
+                <SimpleGrid cols={{ base: 1, md: 2 }} spacing={{ base: "md", md: "sm" }} p="xs">
+                  {isLoading && (
+                    <>
+                      <Skeleton h="8rem" />
+                      <Skeleton h="8rem" />
+                      <Skeleton h="8rem" />
+                    </>
                   )}
-                </Group>
-                <Divider />
-              </>
-            )}
-            <ScrollArea flex={1}>
-              <SimpleGrid cols={{ base: 1, md: 2 }} spacing={{ base: "md", md: "sm" }} p="xs">
-                {isLoading && (
-                  <>
-                    <Skeleton h="8rem" />
-                    <Skeleton h="8rem" />
-                    <Skeleton h="8rem" />
-                  </>
-                )}
-                {!isLoading &&
-                  filteredDatabases?.map((item) => (
-                    <GenericCard
-                      id={item.file}
-                      key={item.filename}
-                      isSelected={selectedDatabase?.filename === item.filename}
-                      setSelected={setSelected}
-                      error={item.type === "error" ? item.error : ""}
-                      onDoubleClick={() => {
-                        if (item.type === "error") return;
-                        navigate({
-                          to: "/databases/$databaseId",
-                          params: {
-                            databaseId: item.title,
-                          },
-                        });
-                        setActiveDatabase(item);
-                        //setStorageSelected(item);
-                      }}
-                      Header={
-                        <Group wrap="nowrap" justify="space-between">
-                          <Group wrap="nowrap" miw={0}>
-                            <IconDatabase size="1.5rem" />
-                            <Box miw={0}>
-                              <Text fw={500} fz="sm">
-                                {item.type === "success" ? item.title : item.error}
-                              </Text>
-                              <Text size="xs" c="dimmed" style={{ wordWrap: "break-word" }}>
-                                {item.type === "error" ? item.file : item.description}
-                              </Text>
-                            </Box>
+                  {!isLoading &&
+                    filteredDatabases?.map((item) => (
+                      <GenericCard
+                        id={item.file}
+                        key={item.filename}
+                        isSelected={selectedDatabase?.filename === item.filename}
+                        setSelected={setSelected}
+                        error={item.type === "error" ? item.error : ""}
+                        onDoubleClick={() => {
+                          if (item.type === "error") return;
+                          navigate({
+                            to: "/databases/$databaseId",
+                            params: {
+                              databaseId: item.title,
+                            },
+                          });
+                          setActiveDatabase(item);
+                          //setStorageSelected(item);
+                        }}
+                        Header={
+                          <Group wrap="nowrap" justify="space-between">
+                            <Group wrap="nowrap" miw={0}>
+                              <IconDatabase size="1.5rem" />
+                              <Box miw={0}>
+                                <Text fw={500} fz="sm">
+                                  {item.type === "success" ? item.title : item.error}
+                                </Text>
+                                <Text size="xs" c="dimmed" style={{ wordWrap: "break-word" }}>
+                                  {item.type === "error" ? item.file : item.description}
+                                </Text>
+                              </Box>
+                            </Group>
+                            <Rating
+                              value={referenceDatabase === item.file ? 1 : 0}
+                              count={1}
+                              onChange={() => {
+                                changeReferenceDatabase(item.file);
+                              }}
+                            />
                           </Group>
-                          <Rating
-                            value={referenceDatabase === item.file ? 1 : 0}
-                            count={1}
-                            onChange={() => {
-                              changeReferenceDatabase(item.file);
-                            }}
-                          />
-                        </Group>
-                      }
-                      stats={[
-                        {
-                          label: t("Databases.Card.Games"),
-                          value: item.type === "success" ? formatNumber(item.game_count) : "???",
-                        },
-                        {
-                          label: t("Databases.Card.Storage"),
-                          value:
-                            item.type === "success" ? formatBytes(item.storage_size ?? 0) : "???",
-                        },
-                      ]}
-                    />
-                  ))}
-              </SimpleGrid>
-            </ScrollArea>
-            {!isLoading && filteredDatabases.length === 0 && (
-              <Center h="100%">
-                <Stack align="center" gap="sm">
-                  <ThemeIcon size={64} radius="100%" variant="light" color="gray">
-                    <IconDatabase size={32} />
-                  </ThemeIcon>
-                  <Text c="dimmed" fw={500} ta="center">
-                    {hasSearch ? t("Common.NoResults") : t("Databases.Empty.NoInstalled")}
-                  </Text>
-                  {!hasSearch && (
-                    <Text c="dimmed" size="sm" ta="center">
-                      {t("Databases.Empty.AddHint")}
+                        }
+                        stats={[
+                          {
+                            label: t("Databases.Card.Games"),
+                            value: item.type === "success" ? formatNumber(item.game_count) : "???",
+                          },
+                          {
+                            label: t("Databases.Card.Storage"),
+                            value:
+                              item.type === "success" ? formatBytes(item.storage_size ?? 0) : "???",
+                          },
+                        ]}
+                      />
+                    ))}
+                </SimpleGrid>
+              </ScrollArea>
+              {!isLoading && filteredDatabases.length === 0 && (
+                <Center h="100%">
+                  <Stack align="center" gap="sm">
+                    <ThemeIcon size={64} radius="100%" variant="light" color="gray">
+                      <IconDatabase size={32} />
+                    </ThemeIcon>
+                    <Text c="dimmed" fw={500} ta="center">
+                      {hasSearch ? t("Common.NoResults") : t("Databases.Empty.NoInstalled")}
                     </Text>
-                  )}
-                </Stack>
-              </Center>
-            )}
-          </Stack>
-        </Paper>
+                    {!hasSearch && (
+                      <Text c="dimmed" size="sm" ta="center">
+                        {t("Databases.Empty.AddHint")}
+                      </Text>
+                    )}
+                  </Stack>
+                </Center>
+              )}
+            </Stack>
+          </Paper>
+        )}
 
         {selectedDatabase === null ? (
-          <Paper withBorder style={{ borderWidth: 2 }} p="md" h="100%">
-            <Center h="100%">
-              <Stack align="center" gap="sm">
-                <ThemeIcon size={80} radius="100%" variant="light" color="gray">
-                  <IconDatabase size={40} />
-                </ThemeIcon>
-                <Text c="dimmed" fw={500} size="lg">
-                  {t("Databases.NoSelection")}
-                </Text>
-              </Stack>
-            </Center>
-          </Paper>
+          !portrait && (
+            <Paper withBorder style={{ borderWidth: 2 }} p="md" h="100%">
+              <Center h="100%">
+                <Stack align="center" gap="sm">
+                  <ThemeIcon size={80} radius="100%" variant="light" color="gray">
+                    <IconDatabase size={40} />
+                  </ThemeIcon>
+                  <Text c="dimmed" fw={500} size="lg">
+                    {t("Databases.NoSelection")}
+                  </Text>
+                </Stack>
+              </Center>
+            </Paper>
+          )
         ) : (
           <Paper withBorder style={{ borderWidth: 2 }} p="md" h="100%">
             <ScrollArea h="100%" offsetScrollbars>
               <Stack>
+                {portrait && (
+                  <Group gap="xs">
+                    <ActionIcon
+                      variant="default"
+                      onClick={() => setSelected(null)}
+                      aria-label={t("Common.Back")}
+                    >
+                      <IconArrowLeft size="1rem" />
+                    </ActionIcon>
+                  </Group>
+                )}
                 {selectedDatabase.type === "error" ? (
                   <>
                     <Text fz="lg" fw="bold">

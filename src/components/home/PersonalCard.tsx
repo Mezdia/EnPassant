@@ -16,6 +16,7 @@ import { useStore } from "zustand";
 import type { PlayerGameInfo } from "@/bindings";
 import { sessionsAtom } from "@/state/atoms";
 import type { DatabaseViewStore } from "@/state/store/database";
+import { useIsMobilePortrait } from "@/utils/useIsLandscape";
 import { DatabaseViewStateContext } from "../databases/DatabaseViewStateContext";
 import FideInfo from "../databases/FideInfo";
 import OpeningsPanel from "./PersonalCardPanels/OpeningsPanel";
@@ -37,6 +38,7 @@ function PersonalPlayerCard({
   const store = useContext(DatabaseViewStateContext)!;
   const activeTab = useStore(store, (s) => s.players.activeTab);
   const setActiveTab = useStore(store, (s) => s.setPlayersActiveTab);
+  const portrait = useIsMobilePortrait();
 
   const [opened, setOpened] = useState(false);
   const sessions = useAtomValue(sessionsAtom);
@@ -48,7 +50,7 @@ function PersonalPlayerCard({
     <Paper
       h="100%"
       shadow="sm"
-      p="md"
+      p={portrait ? "xs" : "md"}
       withBorder
       style={{ overflow: "hidden", display: "flex", flexDirection: "column" }}
     >
@@ -102,13 +104,23 @@ function PersonalPlayerCard({
           <Tabs.Tab value="ratings">{t("Home.Personal.Ratings")}</Tabs.Tab>
           <Tabs.Tab value="openings">{t("Home.Personal.Openings")}</Tabs.Tab>
         </Tabs.List>
-        <Tabs.Panel value="overview">
+        {/* The card is height-constrained in portrait, and Overview/Ratings are
+            plain stacks that can outgrow it, so those two panels scroll. */}
+        <Tabs.Panel
+          value="overview"
+          flex={portrait ? 1 : undefined}
+          style={portrait ? { overflowY: "auto" } : undefined}
+        >
           <OverviewPanel playerName={name} info={info} isDatabase={isDatabase} />
         </Tabs.Panel>
-        <Tabs.Panel value="openings" style={{ overflow: "hidden" }}>
+        <Tabs.Panel value="openings" flex={portrait ? 1 : undefined} style={{ overflow: "hidden" }}>
           <OpeningsPanel playerName={name} info={info} isDatabase={isDatabase} />
         </Tabs.Panel>
-        <Tabs.Panel value="ratings">
+        <Tabs.Panel
+          value="ratings"
+          flex={portrait ? 1 : undefined}
+          style={portrait ? { overflowY: "auto" } : undefined}
+        >
           <RatingsPanel playerName={name} info={info} isDatabase={isDatabase} />
         </Tabs.Panel>
       </Tabs>

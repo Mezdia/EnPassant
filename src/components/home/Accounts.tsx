@@ -20,6 +20,7 @@ import { getChessComAccount } from "@/utils/chess.com/api";
 import { getDatabases } from "@/utils/db";
 import { getLichessAccount } from "@/utils/lichess/api";
 import type { ChessComSession, LichessSession } from "@/utils/session";
+import { useIsMobilePortrait } from "@/utils/useIsLandscape";
 import AccountCards from "../common/AccountCards";
 import GenericCard from "../common/GenericCard";
 import LichessLogo from "./LichessLogo";
@@ -157,6 +158,7 @@ function AccountModal({
   const [player, setPlayer] = useState<string>("");
   const [website, setWebsite] = useState<"lichess" | "chesscom">("lichess");
   const [withLogin, setWithLogin] = useState(false);
+  const portrait = useIsMobilePortrait();
 
   const players = new Set(
     sessions.map((s) => s.player || s.lichess?.username || s.chessCom?.username || ""),
@@ -172,7 +174,12 @@ function AccountModal({
   }
 
   return (
-    <Modal opened={open} onClose={() => setOpen(false)} title={t("Home.Accounts.Add")}>
+    <Modal
+      opened={open}
+      onClose={() => setOpen(false)}
+      title={t("Home.Accounts.Add")}
+      fullScreen={portrait}
+    >
       <form
         onSubmit={(e) => {
           e.preventDefault();

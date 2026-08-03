@@ -33,6 +33,7 @@ import { getDatabases, query_games } from "@/utils/db";
 import { capitalize } from "@/utils/format";
 import { downloadLichess } from "@/utils/lichess/api";
 import { unwrap } from "@/utils/unwrap";
+import { useIsMobilePortrait } from "@/utils/useIsLandscape";
 import LichessLogo from "./LichessLogo";
 
 interface AccountCardProps {
@@ -65,6 +66,7 @@ export function AccountCard({
   token,
 }: AccountCardProps) {
   const { t } = useTranslation();
+  const portrait = useIsMobilePortrait();
   const items = stats.map((stat) => {
     let color = "gray.5";
     let DiffIcon: React.FC<IconProps> = IconArrowRight;
@@ -177,7 +179,7 @@ export function AccountCard({
   }
 
   return (
-    <Card withBorder radius="md" padding="lg">
+    <Card withBorder radius="md" padding={portrait ? "sm" : "lg"} w={portrait ? "100%" : undefined}>
       <Card.Section withBorder inheritPadding py="xs">
         <Group justify="space-between">
           <Group>
@@ -257,7 +259,9 @@ export function AccountCard({
       </Card.Section>
 
       <Card.Section inheritPadding py="md">
-        <SimpleGrid cols={1} spacing="xs">
+        {/* Full-width in portrait, so the per-speed ratings fit two abreast
+            instead of making the card needlessly tall. */}
+        <SimpleGrid cols={portrait ? 2 : 1} spacing="xs" verticalSpacing="xs">
           {items}
         </SimpleGrid>
       </Card.Section>

@@ -56,6 +56,7 @@ import {
   tabsAtom,
 } from "@/state/atoms";
 import { positionFromFen } from "@/utils/chessops";
+import { isDesktop } from "@/utils/platform";
 import type { GameHeaders } from "@/utils/treeReducer";
 import { unwrap } from "@/utils/unwrap";
 import EngineLogsView from "../common/EngineLogsView";
@@ -64,9 +65,11 @@ import GameInfo from "../common/GameInfo";
 import GameNotation from "../common/GameNotation";
 import MoveControls from "../common/MoveControls";
 import { TreeStateContext } from "../common/TreeStateContext";
+import { SHEET_FULL, useMobileSheetOpen } from "../tabs/MobileBoardLayout";
 import Board from "./Board";
 import BoardControls from "./BoardControls";
 import EditingCard from "./EditingCard";
+import { MobileGameSetup } from "./MobileGameSetup";
 import { OpponentForm, type OpponentSettings } from "./OpponentForm";
 
 function gameResultToOutcome(result: GameResult): Outcome {
@@ -151,6 +154,10 @@ function BoardGame() {
   const isPlayerVsEngine =
     (players.white.type === "human" && players.black.type === "engine") ||
     (players.black.type === "human" && players.white.type === "engine");
+
+  // The mobile setup wizard lives in the #topRight portal, which in portrait is
+  // the bottom sheet — hold it open while there is a form to fill in.
+  useMobileSheetOpen(SHEET_FULL, gameState === "settingUp");
 
   const orientation = headers.orientation || "white";
   const toggleOrientation = () => {
@@ -633,7 +640,10 @@ function BoardGame() {
             />
           ) : (
             <>
-              {gameState === "settingUp" && (
+              {gameState === "settingUp" && !isDesktop() && (
+                <MobileGameSetup onStart={startGame} disabled={error !== null} />
+              )}
+              {gameState === "settingUp" && isDesktop() && (
                 <Stack h="100%" gap={0}>
                   <ScrollArea style={{ flex: 1 }} offsetScrollbars>
                     <Stack>

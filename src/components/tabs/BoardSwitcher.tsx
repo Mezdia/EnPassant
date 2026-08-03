@@ -62,7 +62,11 @@ export function BoardSwitcher({
   return (
     <>
       <Group className={classes.bar} gap="xs" wrap="nowrap" px="xs">
-        <ActionIcon variant="subtle" onClick={open} aria-label={t("Tab.SwitchBoard")}>
+        <ActionIcon
+          variant="subtle"
+          onClick={open}
+          aria-label={t("Tab.SwitchBoard", { defaultValue: "Switch board" })}
+        >
           <IconLayoutGrid size="1.25rem" />
         </ActionIcon>
         <Group gap={6} wrap="nowrap" style={{ flex: 1, minWidth: 0 }}>

@@ -1,4 +1,4 @@
-import { ActionIcon, Paper, Stack, Tabs, Text, useMantineTheme } from "@mantine/core";
+import { ActionIcon, Group, Paper, Stack, Tabs, Text, useMantineTheme } from "@mantine/core";
 import { IconEye } from "@tabler/icons-react";
 import { useNavigate } from "@tanstack/react-router";
 import { useAtom, useSetAtom } from "jotai";
@@ -13,7 +13,9 @@ import { activeTabAtom, tabsAtom } from "@/state/atoms";
 import type { DatabaseViewStore } from "@/state/store/database";
 import { getTournamentGames } from "@/utils/db";
 import { createTab } from "@/utils/tabs";
+import { useIsMobilePortrait } from "@/utils/useIsLandscape";
 import { DatabaseViewStateContext } from "./DatabaseViewStateContext";
+import { MobileGameRow, MobileRow, MobileRowList } from "./MobileList";
 
 const gamePoints = (game: NormalizedGame, player: string) => {
   if (game.white === player) {
@@ -35,6 +37,7 @@ function TournamentCard({ tournament, file }: { tournament: Event; file: string 
   const store = useContext(DatabaseViewStateContext)!;
   const tournamentsActiveTab = useStore(store, (s) => s.tournaments.activeTab);
   const setTournamentsActiveTab = useStore(store, (s) => s.setTournamentsActiveTab);
+  const portrait = useIsMobilePortrait();
 
   const theme = useMantineTheme();
   const navigate = useNavigate();
@@ -101,6 +104,26 @@ function TournamentCard({ tournament, file }: { tournament: Event; file: string 
 
   const paginatedGames = sortedGames.slice((page - 1) * 25, (page - 1) * 25 + 25);
 
+  /** Same jump the eye button does, shared with the portrait rows. */
+  function openGame(game: NormalizedGame) {
+    createTab({
+      tab: {
+        name: `${game.white} - ${game.black}`,
+        type: "analysis",
+      },
+      setTabs,
+      setActiveTab,
+      pgn: game.moves,
+      headers: game,
+      gameOrigin: {
+        kind: "database",
+        database: file,
+        gameId: game.id,
+      },
+    });
+    navigate({ to: "/" });
+  }
+
   return (
     <Paper shadow="sm" p="sm" withBorder h="100%">
       <Stack h="100%">
@@ -121,121 +144,138 @@ function TournamentCard({ tournament, file }: { tournament: Event; file: string 
             <Tabs.Tab value="leaderboard">{t("Databases.Tournament.Leaderboard")}</Tabs.Tab>
           </Tabs.List>
           <Tabs.Panel value="games" flex={1} style={{ overflow: "hidden" }}>
-            <DataTable<NormalizedGame>
-              fetching={isLoading}
-              withTableBorder
-              highlightOnHover
-              records={paginatedGames}
-              totalRecords={sortedGames.length}
-              recordsPerPage={pageSize}
-              onRecordsPerPageChange={setPageSize}
-              recordsPerPageOptions={[10, 25, 50]}
-              page={page}
-              onPageChange={setPage}
-              sortStatus={sort}
-              onSortStatusChange={setSort}
-              columns={[
-                {
-                  accessor: "actions",
-                  title: "",
-                  render: (game) => (
-                    <ActionIcon
-                      variant="filled"
-                      color={theme.primaryColor}
-                      onClick={() => {
-                        createTab({
-                          tab: {
-                            name: `${game.white} - ${game.black}`,
-                            type: "analysis",
-                          },
-                          setTabs,
-                          setActiveTab,
-                          pgn: game.moves,
-                          headers: game,
-                          gameOrigin: {
-                            kind: "database",
-                            database: file,
-                            gameId: game.id,
-                          },
-                        });
-                        navigate({ to: "/" });
-                      }}
-                    >
-                      <IconEye size="1rem" stroke={1.5} />
-                    </ActionIcon>
-                  ),
-                },
-                {
-                  accessor: "white",
-                  render: ({ white, white_elo }) => (
-                    <div>
-                      <Text size="sm" fw={500}>
-                        {white}
-                      </Text>
-                      <Text size="xs" c="dimmed">
-                        {white_elo === 0 ? "Unrated" : white_elo}
-                      </Text>
-                    </div>
-                  ),
-                },
-                {
-                  accessor: "black",
-                  render: ({ black, black_elo }) => (
-                    <div>
-                      <Text size="sm" fw={500}>
-                        {black}
-                      </Text>
-                      <Text size="xs" c="dimmed">
-                        {black_elo === 0 ? "Unrated" : black_elo}
-                      </Text>
-                    </div>
-                  ),
-                },
-                { accessor: "date", sortable: true },
-                { accessor: "result" },
-                { accessor: "ply_count", sortable: true },
-              ]}
-              noRecordsText="No games found"
-            />
+            {portrait ? (
+              <MobileRowList
+                isLoading={isLoading}
+                empty={t("Databases.Game.NoneFound")}
+                page={page}
+                totalPages={Math.ceil(sortedGames.length / pageSize)}
+                onPageChange={setPage}
+              >
+                {paginatedGames.map((game) => (
+                  <MobileGameRow key={game.id} game={game} onClick={() => openGame(game)} />
+                ))}
+              </MobileRowList>
+            ) : (
+              <DataTable<NormalizedGame>
+                fetching={isLoading}
+                withTableBorder
+                highlightOnHover
+                records={paginatedGames}
+                totalRecords={sortedGames.length}
+                recordsPerPage={pageSize}
+                onRecordsPerPageChange={setPageSize}
+                recordsPerPageOptions={[10, 25, 50]}
+                page={page}
+                onPageChange={setPage}
+                sortStatus={sort}
+                onSortStatusChange={setSort}
+                columns={[
+                  {
+                    accessor: "actions",
+                    title: "",
+                    render: (game) => (
+                      <ActionIcon
+                        variant="filled"
+                        color={theme.primaryColor}
+                        onClick={() => openGame(game)}
+                      >
+                        <IconEye size="1rem" stroke={1.5} />
+                      </ActionIcon>
+                    ),
+                  },
+                  {
+                    accessor: "white",
+                    render: ({ white, white_elo }) => (
+                      <div>
+                        <Text size="sm" fw={500}>
+                          {white}
+                        </Text>
+                        <Text size="xs" c="dimmed">
+                          {white_elo === 0 ? t("Common.Unrated") : white_elo}
+                        </Text>
+                      </div>
+                    ),
+                  },
+                  {
+                    accessor: "black",
+                    render: ({ black, black_elo }) => (
+                      <div>
+                        <Text size="sm" fw={500}>
+                          {black}
+                        </Text>
+                        <Text size="xs" c="dimmed">
+                          {black_elo === 0 ? t("Common.Unrated") : black_elo}
+                        </Text>
+                      </div>
+                    ),
+                  },
+                  { accessor: "date", sortable: true },
+                  { accessor: "result" },
+                  { accessor: "ply_count", sortable: true },
+                ]}
+                noRecordsText={t("Databases.Game.NoneFound")}
+              />
+            )}
           </Tabs.Panel>
           <Tabs.Panel value="leaderboard" flex={1} style={{ overflow: "hidden" }}>
-            <DataTable
-              fetching={isLoading}
-              withTableBorder
-              highlightOnHover
-              records={players}
-              columns={[
-                {
-                  accessor: "rank",
-                  title: "#",
-                  width: "2.5rem",
-                  render: (player, index) => (
-                    <Text size="sm" fw={500}>
-                      {index + 1}
-                    </Text>
-                  ),
-                },
-                {
-                  accessor: "name",
-                  title: "Player",
-                  render: (player) => (
-                    <Text size="sm" fw={500}>
-                      {player.name}
-                    </Text>
-                  ),
-                },
-                {
-                  accessor: "points",
-                  title: "Points",
-                  render: (player) => (
-                    <Text size="sm" fw={500}>
-                      {player.points}
-                    </Text>
-                  ),
-                },
-              ]}
-              noRecordsText="No players found"
-            />
+            {portrait ? (
+              <MobileRowList isLoading={isLoading} empty={t("Databases.Player.NoPlayersFound")}>
+                {players.map((player, index) => (
+                  <MobileRow key={player.name}>
+                    <Group gap="xs" wrap="nowrap" justify="space-between">
+                      <Text size="sm" c="dimmed" w="1.5rem">
+                        {index + 1}
+                      </Text>
+                      <Text size="sm" fw={500} truncate style={{ flex: 1, minWidth: 0 }}>
+                        {player.name}
+                      </Text>
+                      <Text size="sm" fw={500}>
+                        {player.points}
+                      </Text>
+                    </Group>
+                  </MobileRow>
+                ))}
+              </MobileRowList>
+            ) : (
+              <DataTable
+                fetching={isLoading}
+                withTableBorder
+                highlightOnHover
+                records={players}
+                columns={[
+                  {
+                    accessor: "rank",
+                    title: "#",
+                    width: "2.5rem",
+                    render: (player, index) => (
+                      <Text size="sm" fw={500}>
+                        {index + 1}
+                      </Text>
+                    ),
+                  },
+                  {
+                    accessor: "name",
+                    title: t("Board.Opponent.Player"),
+                    render: (player) => (
+                      <Text size="sm" fw={500}>
+                        {player.name}
+                      </Text>
+                    ),
+                  },
+                  {
+                    accessor: "points",
+                    title: t("Databases.Tournament.Points"),
+                    render: (player) => (
+                      <Text size="sm" fw={500}>
+                        {player.points}
+                      </Text>
+                    ),
+                  },
+                ]}
+                noRecordsText={t("Databases.Player.NoPlayersFound")}
+              />
+            )}
           </Tabs.Panel>
         </Tabs>
       </Stack>

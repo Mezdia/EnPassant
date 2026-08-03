@@ -1,7 +1,12 @@
 import { Group, Select } from "@mantine/core";
 import { useAtomValue } from "jotai";
 import { useEffect, useState } from "react";
+import { useTranslation } from "react-i18next";
 import { sessionsAtom } from "@/state/atoms";
+
+/** Sentinel values; only their labels are translated. */
+const ALL_WEBSITES = "All websites";
+const ALL_ACCOUNTS = "All accounts";
 
 interface WebsiteAccountSelectorProps {
   playerName: string;
@@ -16,6 +21,7 @@ const WebsiteAccountSelector = ({
   onAccountChange,
   allowAll,
 }: WebsiteAccountSelectorProps) => {
+  const { t } = useTranslation();
   const sessions = useAtomValue(sessionsAtom);
 
   const websites = [];
@@ -27,11 +33,11 @@ const WebsiteAccountSelector = ({
   }
 
   if (allowAll) {
-    websites.unshift({ value: "All websites", label: "All websites" });
+    websites.unshift({ value: ALL_WEBSITES, label: t("Home.Personal.AllWebsites") });
   }
 
   const [website, setWebsite] = useState<string | null>(websites[0]?.value);
-  const [account, setAccount] = useState<string | null>("All accounts");
+  const [account, setAccount] = useState<string | null>(ALL_ACCOUNTS);
 
   useEffect(() => {
     onWebsiteChange(website);
@@ -41,35 +47,38 @@ const WebsiteAccountSelector = ({
     onAccountChange(account);
   }, [account]);
 
-  const accounts = ["All accounts"].concat(
-    sessions
-      .filter(
-        (s) =>
-          s.player === playerName &&
-          ((website === "Chess.com" && s.chessCom?.username) ||
-            (website === "Lichess" && s.lichess?.username)),
-      )
-      .map((s) => s.chessCom?.username || s.lichess?.username)
-      .filter((username): username is string => username !== undefined && username !== null),
-  );
+  const usernames = sessions
+    .filter(
+      (s) =>
+        s.player === playerName &&
+        ((website === "Chess.com" && s.chessCom?.username) ||
+          (website === "Lichess" && s.lichess?.username)),
+    )
+    .map((s) => s.chessCom?.username || s.lichess?.username)
+    .filter((username): username is string => username !== undefined && username !== null);
+
+  const accounts = [
+    { value: ALL_ACCOUNTS, label: t("Home.Personal.AllAccounts") },
+    ...usernames.map((username) => ({ value: username, label: username })),
+  ];
 
   return (
     <Group grow>
       <Select
         pt="lg"
-        label="Website"
+        label={t("Home.Accounts.Website")}
         value={website}
         onChange={(value) => {
           setWebsite(value);
-          setAccount("All accounts");
+          setAccount(ALL_ACCOUNTS);
         }}
         data={websites}
         allowDeselect={false}
       />
-      {website !== "All websites" && accounts.filter((a) => a !== "All accounts").length > 1 && (
+      {website !== ALL_WEBSITES && usernames.length > 1 && (
         <Select
           pt="lg"
-          label="Account"
+          label={t("Home.Personal.Account")}
           value={account}
           onChange={(value) => setAccount(value)}
           data={accounts}

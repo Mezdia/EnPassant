@@ -1,9 +1,10 @@
-import { Box, Divider, Group, ScrollArea, Stack, Text } from "@mantine/core";
+import { Box, Divider, Group, ScrollArea, SegmentedControl, Stack, Text } from "@mantine/core";
 import { useNavigate } from "@tanstack/react-router";
 import { useVirtualizer } from "@tanstack/react-virtual";
 import type { Color } from "chessops";
 import { useAtom, useAtomValue } from "jotai";
 import { useRef, useState } from "react";
+import { useTranslation } from "react-i18next";
 import type { PlayerGameInfo } from "@/bindings";
 import { commands, type GameOutcome } from "@/bindings";
 import { activeTabAtom, fontSizeAtom, tabsAtom } from "@/state/atoms";
@@ -12,6 +13,7 @@ import { createTab } from "@/utils/tabs";
 import { getTimeControl } from "@/utils/timeControl";
 import { countMainPly, defaultTree } from "@/utils/treeReducer";
 import { unwrap } from "@/utils/unwrap";
+import { useIsMobilePortrait } from "@/utils/useIsLandscape";
 import classes from "./OpeningsPanel.module.css";
 import ResultsChart from "./ResultsChart";
 import TimeControlSelector from "./TimeControlSelector";
@@ -95,11 +97,22 @@ function OpeningsPanel({
   const blackOpenings = aggregateOpenings(openingData, "black");
 
   const fontSize = useAtomValue(fontSizeAtom);
+  const { t } = useTranslation();
+  const portrait = useIsMobilePortrait();
+  const [side, setSide] = useState<Color>("white");
+
+  // Portrait has no room for the two side-by-side columns, so a segmented
+  // control picks one side and the list becomes single-column.
+  const shownOpenings = portrait
+    ? side === "white"
+      ? whiteOpenings
+      : blackOpenings
+    : whiteOpenings;
 
   const parentRef = useRef<HTMLDivElement>(null);
   const rowVirtualizer = useVirtualizer({
-    count: Math.max(whiteOpenings.length, blackOpenings.length),
-    estimateSize: () => 120 * (fontSize / 100),
+    count: portrait ? shownOpenings.length : Math.max(whiteOpenings.length, blackOpenings.length),
+    estimateSize: () => (portrait ? 96 : 120) * (fontSize / 100),
     getScrollElement: () => parentRef.current,
   });
 
@@ -123,14 +136,28 @@ function OpeningsPanel({
         />
       </Group>
 
-      <Group grow pt="xl">
-        <Text ta="center" fw="bold">
-          White
-        </Text>
-        <Text ta="center" fw="bold">
-          Black
-        </Text>
-      </Group>
+      {portrait ? (
+        <SegmentedControl
+          mt="md"
+          fullWidth
+          size="xs"
+          value={side}
+          onChange={(value) => setSide(value as Color)}
+          data={[
+            { label: t("Fen.White"), value: "white" },
+            { label: t("Fen.Black"), value: "black" },
+          ]}
+        />
+      ) : (
+        <Group grow pt="xl">
+          <Text ta="center" fw="bold">
+            {t("Fen.White")}
+          </Text>
+          <Text ta="center" fw="bold">
+            {t("Fen.Black")}
+          </Text>
+        </Group>
+      )}
       <Divider mt="md" />
       <ScrollArea viewportRef={parentRef} flex={1}>
         <Box
@@ -143,6 +170,7 @@ function OpeningsPanel({
           {rowVirtualizer.getVirtualItems().map((virtualRow) => {
             const white = whiteOpenings[virtualRow.index];
             const black = blackOpenings[virtualRow.index];
+            const shown = shownOpenings[virtualRow.index];
             return (
               <Box
                 key={virtualRow.index}
@@ -155,18 +183,28 @@ function OpeningsPanel({
                   transform: `translateY(${virtualRow.start}px)`,
                 }}
               >
-                <Group grow>
-                  {white ? (
-                    <OpeningDetail opening={white} totalGames={whiteGames} color="white" />
-                  ) : (
-                    <div />
-                  )}
-                  {black ? (
-                    <OpeningDetail opening={black} totalGames={blackGames} color="black" />
-                  ) : (
-                    <div />
-                  )}
-                </Group>
+                {portrait ? (
+                  shown && (
+                    <OpeningDetail
+                      opening={shown}
+                      totalGames={side === "white" ? whiteGames : blackGames}
+                      color={side}
+                    />
+                  )
+                ) : (
+                  <Group grow>
+                    {white ? (
+                      <OpeningDetail opening={white} totalGames={whiteGames} color="white" />
+                    ) : (
+                      <div />
+                    )}
+                    {black ? (
+                      <OpeningDetail opening={black} totalGames={blackGames} color="black" />
+                    ) : (
+                      <div />
+                    )}
+                  </Group>
+                )}
                 <Divider />
               </Box>
             );

@@ -16,6 +16,7 @@ import { sessionsAtom } from "@/state/atoms";
 import { getChessComAccount, getStats } from "@/utils/chess.com/api";
 import { getLichessAccount } from "@/utils/lichess/api";
 import type { Session } from "@/utils/session";
+import { useIsMobilePortrait } from "@/utils/useIsLandscape";
 import { AccountCard } from "../home/AccountCard";
 import { EmptyAccounts } from "../home/EmptyAccounts";
 
@@ -29,6 +30,7 @@ function AccountCards({
   onAddAccount: () => void;
 }) {
   const sessions = useAtomValue(sessionsAtom);
+  const portrait = useIsMobilePortrait();
   const playerNames = Array.from(
     new Set(sessions.map((s) => s.player ?? s.lichess?.username ?? s.chessCom?.username)),
   );
@@ -44,21 +46,25 @@ function AccountCards({
     return <EmptyAccounts onAddAccount={onAddAccount} />;
   }
 
-  return (
-    <ScrollArea offsetScrollbars>
-      <Stack>
-        {playerSessions.map(({ name, sessions }) => (
-          <PlayerSession
-            key={name}
-            name={name!}
-            sessions={sessions}
-            databases={databases}
-            setDatabases={setDatabases}
-          />
-        ))}
-      </Stack>
-    </ScrollArea>
+  const cards = (
+    <Stack>
+      {playerSessions.map(({ name, sessions }) => (
+        <PlayerSession
+          key={name}
+          name={name!}
+          sessions={sessions}
+          databases={databases}
+          setDatabases={setDatabases}
+        />
+      ))}
+    </Stack>
   );
+
+  // In portrait the whole page scrolls (see `AccountsPage`), so a nested
+  // scroll area here would trap the gesture.
+  if (portrait) return cards;
+
+  return <ScrollArea offsetScrollbars>{cards}</ScrollArea>;
 }
 
 function PlayerSession({
@@ -75,6 +81,7 @@ function PlayerSession({
   const [, setSessions] = useAtom(sessionsAtom);
   const [edit, setEdit] = useState(false);
   const [text, setText] = useState(name);
+  const portrait = useIsMobilePortrait();
   useEffect(() => {
     setText(name);
   }, [name]);
@@ -158,17 +165,33 @@ function PlayerSession({
         </Group>
       </Group>
       <Divider />
-      <Group>
-        {sessions.map((session, i) => (
-          <LichessOrChessCom
-            key={i}
-            session={session}
-            databases={databases}
-            setDatabases={setDatabases}
-            setSessions={setSessions}
-          />
-        ))}
-      </Group>
+      {/* Portrait stacks the accounts full-width instead of letting them sit
+          side by side, which would squeeze each card's stats column. */}
+      {portrait ? (
+        <SimpleGrid cols={1} spacing="sm">
+          {sessions.map((session, i) => (
+            <LichessOrChessCom
+              key={i}
+              session={session}
+              databases={databases}
+              setDatabases={setDatabases}
+              setSessions={setSessions}
+            />
+          ))}
+        </SimpleGrid>
+      ) : (
+        <Group>
+          {sessions.map((session, i) => (
+            <LichessOrChessCom
+              key={i}
+              session={session}
+              databases={databases}
+              setDatabases={setDatabases}
+              setSessions={setSessions}
+            />
+          ))}
+        </Group>
+      )}
     </Stack>
   );
 }

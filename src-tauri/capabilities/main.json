@@ -24,13 +24,10 @@
         },
         "dialog:default",
         "os:default",
-        "cli:default",
-        "updater:default",
         "process:default",
         "log:default",
         "fs:default",
         "fs:write-all",
-        "window-state:default",
         {
             "identifier": "fs:scope-appdata-recursive",
             "allow": [
