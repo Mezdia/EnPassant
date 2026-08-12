@@ -63,7 +63,8 @@ import { check } from "@tauri-apps/plugin-updater";
 import ErrorComponent from "@/components/ErrorComponent";
 import { getDatabasesDir, getDocumentDir, getEnginesDir, getPuzzlesDir } from "@/utils/directories";
 import { initUserAgent } from "@/utils/http";
-import { isDesktop } from "@/utils/platform";
+import { completeLichessLogin } from "@/utils/lichess/oauth";
+import { isDesktop, isMobile } from "@/utils/platform";
 import { routeTree } from "./routeTree.gen";
 
 export type Dirs = {
@@ -85,21 +86,20 @@ const router = createRouter({
       const enginesDir = await getEnginesDir();
       const puzzlesDir = await getPuzzlesDir();
 
-      if (!store.get(storedDocumentDirAtom)) {
-        store.set(storedDocumentDirAtom, documentDir);
-      }
+      // First launch seeds the atoms with the resolved defaults. On mobile the
+      // paths are dictated by the OS sandbox, so a value carried over from
+      // another install (or another platform) is replaced rather than honoured.
+      const seedDir = (dirAtom: typeof storedDocumentDirAtom, resolved: string) => {
+        const stored = store.get(dirAtom);
+        if (!stored || (isMobile() && stored !== resolved)) {
+          store.set(dirAtom, resolved);
+        }
+      };
 
-      if (!store.get(storedDatabasesDirAtom)) {
-        store.set(storedDatabasesDirAtom, databasesDir);
-      }
-
-      if (!store.get(storedEnginesDirAtom)) {
-        store.set(storedEnginesDirAtom, enginesDir);
-      }
-
-      if (!store.get(storedPuzzlesDirAtom)) {
-        store.set(storedPuzzlesDirAtom, puzzlesDir);
-      }
+      seedDir(storedDocumentDirAtom, documentDir);
+      seedDir(storedDatabasesDirAtom, databasesDir);
+      seedDir(storedEnginesDirAtom, enginesDir);
+      seedDir(storedPuzzlesDirAtom, puzzlesDir);
 
       return {
         documentDir,
@@ -157,6 +157,15 @@ function useAppStartup() {
     initialized.current = true;
 
     const startupSequence = async () => {
+      // Registered before the splash screen is closed: the Rust side holds back
+      // a token that arrived with a deep-link launch until that call, so the
+      // listener has to exist by then.
+      const unlistenToken = await listen<string>("access_token", (event) => {
+        completeLichessLogin(event.payload).catch((e) => {
+          error(`Failed to add the Lichess account: ${e}`);
+        });
+      });
+
       await commands.closeSplashscreen();
       await initUserAgent();
 
@@ -198,16 +207,19 @@ function useAppStartup() {
 
       await preloadReferenceDb(store);
 
-      return detach;
+      return () => {
+        unlistenToken();
+        detach();
+      };
     };
 
-    let detachFn: (() => void) | undefined;
+    let cleanup: (() => void) | undefined;
     startupSequence().then((fn) => {
-      detachFn = fn;
+      cleanup = fn;
     });
 
     return () => {
-      if (detachFn) detachFn();
+      cleanup?.();
     };
   }, [setTabs, setActiveTab]);
 }

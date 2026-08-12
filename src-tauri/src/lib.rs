@@ -98,6 +98,12 @@ async fn close_splashscreen(window: Window) -> Result<(), String> {
         .expect("no window labeled 'main' found")
         .show()
         .unwrap();
+
+    // The frontend is listening by now, so a token from a deep-link launch can
+    // be delivered without the event going nowhere.
+    #[cfg(mobile)]
+    oauth::webview_ready(window.app_handle());
+
     Ok(())
 }
 
@@ -190,7 +196,7 @@ pub fn run() {
     let log_targets = [
         TargetKind::Stdout,
         TargetKind::LogDir {
-            file_name: Some(String::from("en-croissant.log")),
+            file_name: Some(String::from("en-passant.log")),
         },
     ];
 
@@ -215,6 +221,7 @@ pub fn run() {
         .plugin(tauri_plugin_fs::init())
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_os::init())
+        .plugin(tauri_plugin_deep_link::init())
         .setup(move |app| {
             log::info!("Setting up application");
 
@@ -241,6 +248,32 @@ pub fn run() {
             #[cfg(desktop)]
             app.handle()
                 .plugin(tauri_plugin_updater::Builder::new().build())?;
+
+            // Mobile finishes the Lichess OAuth flow through the
+            // `enpassant://oauth/callback` deep link instead of a loopback
+            // redirect, since no external browser can reach a port we bind.
+            #[cfg(mobile)]
+            {
+                use tauri_plugin_deep_link::DeepLinkExt;
+
+                let handle = app.handle().clone();
+                app.deep_link().on_open_url(move |event| {
+                    for url in event.urls() {
+                        oauth::on_deep_link(handle.clone(), url);
+                    }
+                });
+                // A link that started the app arrives here rather than as an
+                // event, because it was delivered before the listener existed.
+                match app.deep_link().get_current() {
+                    Ok(Some(urls)) => {
+                        for url in urls {
+                            oauth::on_deep_link(app.handle().clone(), url);
+                        }
+                    }
+                    Ok(None) => {}
+                    Err(e) => log::warn!("Failed to read the launch deep link: {e}"),
+                }
+            }
 
             log::info!("Finished rust initialization");
 

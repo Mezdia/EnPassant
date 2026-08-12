@@ -1,11 +1,16 @@
-use std::{fmt::Display, path::PathBuf, process::Stdio};
+use std::{fmt::Display, path::PathBuf};
 
+#[cfg(not(target_os = "android"))]
 use log::error;
 use serde::Serialize;
 use specta::Type;
+#[cfg(not(target_os = "android"))]
+use std::process::Stdio;
+#[cfg(not(target_os = "android"))]
+use tokio::process::Command;
 use tokio::{
     io::{AsyncBufReadExt, AsyncWriteExt, BufReader, Lines},
-    process::{Child, ChildStdin, ChildStdout, Command},
+    process::{Child, ChildStdin, ChildStdout},
 };
 use vampirc_uci::UciMessage;
 
@@ -34,6 +39,16 @@ pub struct BaseEngine {
 }
 
 impl BaseEngine {
+    /// Android (API 29+) enforces W^X: an app may not `exec()` a binary living
+    /// in writable storage, so a downloaded UCI engine can never start. Phase 1
+    /// of the engine port therefore offers cloud engines only; Phase 2 will run
+    /// an engine shipped in `jniLibs` in-process, behind this same entry point.
+    #[cfg(target_os = "android")]
+    pub async fn spawn(_path: PathBuf) -> Result<Self, Error> {
+        Err(Error::LocalEnginesUnsupported)
+    }
+
+    #[cfg(not(target_os = "android"))]
     pub async fn spawn(path: PathBuf) -> Result<Self, Error> {
         let mut command = Command::new(&path);
         command.current_dir(path.parent().unwrap_or(&path));

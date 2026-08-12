@@ -1,16 +1,16 @@
 [package]
-name = "en-croissant"
+name = "en-passant"
 version = "0.15.0"
 description = "A Modern Chess Database"
-authors = ["Francisco Salgueiro <fgcdbs@gmail.com>"]
+authors = ["Mezdia <mehdieisa51@gmail.com>"]
 license = "GPL-3.0-only"
-repository = "https://github.com/franciscoBSalgueiro/en-croissant"
+repository = "https://github.com/Mezdia/En-passant"
 edition = "2021"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [lib]
-name = "en_croissant_lib"
+name = "en_passant_lib"
 crate-type = ["staticlib", "cdylib", "rlib"]
 
 [build-dependencies]
@@ -54,7 +54,7 @@ strsim = "0.11.0"
 thiserror = "2"
 log = "0.4.20"
 oauth2 = "4.4.2"
-axum = "0.6.20"
+url = "2"
 tar = "0.4.40"
 sysinfo = "0.29.10"
 governor = "0.6.3"
@@ -67,6 +67,9 @@ tauri-plugin-os = "2.3.2"
 tauri-plugin-process = "2.3.1"
 tauri-plugin-log = "2.8.0"
 tauri-plugin-opener = "2"
+# Delivers the `enpassant://oauth/callback` redirect on Android/iOS; inert on
+# desktop, where OAuth uses a loopback redirect instead.
+tauri-plugin-deep-link = "2.4.9"
 memmap2 = "0.9"
 rkyv = { version = "0.8", features = ["bytecheck"] }
 polyglot-book-rs = "0.1.0"
@@ -76,6 +79,8 @@ polyglot-book-rs = "0.1.0"
 tauri-plugin-cli = "2.4.1"
 tauri-plugin-updater = "2.10.0"
 tauri-plugin-window-state = "2.4.1"
+# Serves the OAuth loopback redirect and (on Linux) the local sound server.
+axum = "0.6.20"
 
 [features]
 # by default Tauri runs in production mode

@@ -55,6 +55,7 @@ import {
   gameSameTimeControlAtom,
   tabsAtom,
 } from "@/state/atoms";
+import { APP_NAME } from "@/utils/branding";
 import { positionFromFen } from "@/utils/chessops";
 import { isDesktop } from "@/utils/platform";
 import type { GameHeaders } from "@/utils/treeReducer";
@@ -374,7 +375,7 @@ function BoardGame() {
         white: state.whitePlayer,
         black: state.blackPlayer,
         event: eventStr,
-        site: "En Croissant",
+        site: APP_NAME,
         date: dateStr,
         time: timeStr,
         time_control: undefined,

@@ -22,7 +22,9 @@ interface TabLinkProps {
 
 function TabLink({ url, icon: Icon, label }: TabLinkProps) {
   const match = useMatchRoute();
-  const active = match({ to: url, fuzzy: true }) !== false;
+  // "/" is a prefix of every route, so it must match exactly or the Board tab
+  // would light up on every screen.
+  const active = match({ to: url, fuzzy: url !== "/" }) !== false;
   return (
     <Link
       to={url}

@@ -81,3 +81,99 @@ jobs:
           releaseDraft: true
           prerelease: false
           args: ${{ matrix.args }}
+
+  # Android is built separately because `tauri-action` only drives the desktop
+  # bundler. It runs after `release` so the draft release already exists and the
+  # APK/AAB can be attached to it.
+  android:
+    needs: release
+    permissions:
+      contents: write
+    runs-on: ubuntu-24.04
+    env:
+      ANDROID_BUILD_TOOLS_VERSION: "34.0.0"
+      ANDROID_NDK_VERSION: "27.2.12479018"
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up the JDK
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - name: Set up the Android SDK
+        uses: android-actions/setup-android@v3
+        with:
+          packages: "platform-tools platforms;android-34 build-tools;${{ env.ANDROID_BUILD_TOOLS_VERSION }} ndk;${{ env.ANDROID_NDK_VERSION }}"
+
+      - name: Point the build at the NDK and the build tools
+        run: |
+          echo "NDK_HOME=$ANDROID_HOME/ndk/$ANDROID_NDK_VERSION" >> "$GITHUB_ENV"
+          echo "ANDROID_NDK_ROOT=$ANDROID_HOME/ndk/$ANDROID_NDK_VERSION" >> "$GITHUB_ENV"
+          echo "$ANDROID_HOME/build-tools/$ANDROID_BUILD_TOOLS_VERSION" >> "$GITHUB_PATH"
+
+      - name: Rust setup
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: aarch64-linux-android,armv7-linux-androideabi,i686-linux-android,x86_64-linux-android
+
+      - name: Rust cache
+        uses: swatinem/rust-cache@v2
+        with:
+          workspaces: "./src-tauri -> target"
+          key: android
+
+      - name: Install pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 10
+
+      - name: Sync node version and setup cache
+        uses: actions/setup-node@v4
+        with:
+          node-version: "lts/*"
+          cache: "pnpm"
+
+      - name: Install app dependencies
+        run: pnpm install --frozen-lockfile
+
+      # `src-tauri/gen/` is not checked in, so the Gradle project is generated
+      # from `tauri.conf.json` on every run.
+      - name: Generate the Android project
+        run: pnpm tauri android init --ci --skip-targets-install
+
+      # The generated project ships Tauri's placeholder launcher icons, and
+      # `src-tauri/icons/android/` is not read by the build, so the branded
+      # mipmaps are copied over the generated resources.
+      - name: Apply the branded launcher icons
+        run: cp -R src-tauri/icons/android/. src-tauri/gen/android/app/src/main/res/
+
+      - name: Build the Android app
+        run: pnpm tauri android build --apk --aab
+        env:
+          CI: false
+
+      # Gradle emits unsigned release artifacts; they are aligned and signed
+      # here so no secret has to be written into the generated Gradle files.
+      - name: Sign and stage the Android artifacts
+        env:
+          ANDROID_KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+          ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+          ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+        run: bash .github/scripts/sign-android.sh
+
+      - name: Upload the Android artifacts to the workflow run
+        uses: actions/upload-artifact@v4
+        with:
+          name: android
+          path: android-artifacts/*
+          if-no-files-found: error
+
+      - name: Attach the Android artifacts to the draft release
+        if: startsWith(github.ref, 'refs/tags/')
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: gh release upload "${{ github.ref_name }}" android-artifacts/* --clobber

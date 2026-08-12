@@ -4,5 +4,5 @@
 )]
 
 fn main() {
-    en_croissant_lib::run()
+    en_passant_lib::run()
 }

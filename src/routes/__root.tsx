@@ -23,6 +23,7 @@ import { SideBar } from "@/components/Sidebar";
 import TopBar from "@/components/TopBar";
 import { activeTabAtom, nativeBarAtom, tabsAtom } from "@/state/atoms";
 import { keyMapAtom } from "@/state/keybinds";
+import { APP_DOCS_URL } from "@/utils/branding";
 import { openFile } from "@/utils/files";
 import { isDesktop } from "@/utils/platform";
 import { createTab } from "@/utils/tabs";
@@ -281,7 +282,7 @@ function RootLayout() {
           {
             label: t("Menu.Help.Documentation"),
             id: "documentation",
-            action: () => openUrl("https://encroissant.org/docs/"),
+            action: () => openUrl(APP_DOCS_URL),
           },
           {
             label: t("Menu.Help.ClearSavedData"),
@@ -302,7 +303,7 @@ function RootLayout() {
             label: t("Menu.Help.OpenLogs"),
             id: "logs",
             action: async () => {
-              const path = await resolve(await appLogDir(), "en-croissant.log");
+              const path = await resolve(await appLogDir(), "en-passant.log");
               notifications.show({
                 title: "Logs",
                 message: `Opened logs in ${path}`,
@@ -361,6 +362,7 @@ function RootLayout() {
   }, [navigate, setTabs, setActiveTab]);
 
   if (mobile) {
+    // No native menu bar here, so About is reached from the Settings screen.
     return (
       <AppShell
         footer={{ height: "3.5rem" }}
@@ -371,7 +373,6 @@ function RootLayout() {
           },
         }}
       >
-        <AboutModal opened={opened} setOpened={setOpened} />
         <AppShell.Main>
           <Outlet />
         </AppShell.Main>

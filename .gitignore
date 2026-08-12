@@ -27,3 +27,9 @@ tsconfig.tsbuildinfo
 *.sw?
 
 src-tauri/gen/
+
+# Signed Android artifacts staged by .github/scripts/sign-android.sh
+android-artifacts/
+
+# Local planning notes, kept out of the repository
+android-port-plan.txt

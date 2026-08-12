@@ -16,15 +16,15 @@ your contribution.
 
 Before you start working on a contribution, please check the issues page. It's possible someone else is already working on something similar, or perhaps there is a reason that feature isn't implemented. The maintainers will point you in the right direction.
 
-> If you still have questions, please check [the Discord](https://discord.gg/tdYzfDbSSW)
+> If you still have questions, please open a [discussion or issue](https://github.com/Mezdia/En-passant/issues)
 
 ## Development
 
 The following steps will get you setup to contribute changes to this repo:
 
 - Fork the repo
-- Clone your forked repository: `git clone git@github.com:{your_username}/en-croissant.git`
-- Enter the en-croissant directory: `cd en-croissant`
+- Clone your forked repository: `git clone git@github.com:{your_username}/En-passant.git`
+- Enter the En-passant directory: `cd En-passant`
 - Create a new branch off the `master` branch: `git checkout -b your-feature-name`
 - Install dependencies `pnpm i`
 - Open the code in your preferred IDE and contribute your changes
@@ -66,7 +66,7 @@ The following steps will get you setup to contribute changes to this repo:
 - Implement your contributions (see the [Development](#development) section for more information)
 - Before submitting a PR, first build the app using `pnpm build` and check every feature you've contributed to.
 - Format and lint your code using `pnpm format` followed by `pnpm lint:fix`. If you added or changed any translation keys, run `pnpm i18n:extract` to update the translation files.
-- Go to [the comparison page](https://github.com/franciscoBSalgueiro/en-croissant/compare) and select the branch you just pushed in the `compare:` dropdown
+- Go to [the comparison page](https://github.com/Mezdia/En-passant/compare) and select the branch you just pushed in the `compare:` dropdown
 - Submit the new PR. The maintainers will follow up ASAP.
 
 ## Extra Notes

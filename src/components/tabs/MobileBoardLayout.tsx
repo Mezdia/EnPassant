@@ -24,6 +24,9 @@ const SNAP_POINTS: readonly number[] = [0.12, 0.5, 0.88];
 const PEEK = SNAP_POINTS[0];
 const MAX_FRACTION = SNAP_POINTS[SNAP_POINTS.length - 1];
 
+/** Pointer travel (px) below which a drag on the handle counts as a tap. */
+const TAP_SLOP = 6;
+
 const clamp = (f: number) => Math.min(MAX_FRACTION, Math.max(PEEK, f));
 
 /** Nearest snap point to `f`. */
@@ -91,13 +94,29 @@ export function MobileBoardLayout() {
 
 function PortraitLayout() {
   const rootRef = useRef<HTMLDivElement>(null);
+  const [rootHeight, setRootHeight] = useState(0);
   const [fraction, setFraction] = useAtom(mobileSheetFractionAtom);
   const [dragging, setDragging] = useState(false);
-  const dragState = useRef<{ startY: number; startFraction: number } | null>(null);
+  const dragState = useRef<{ startY: number; startFraction: number; moved: boolean } | null>(null);
+
+  // The board area has to reserve the peeking sheet's height. A percentage
+  // padding would resolve against the container's *width*, so measure instead.
+  useEffect(() => {
+    const root = rootRef.current;
+    if (!root) return;
+    const measure = () => setRootHeight(root.clientHeight);
+    measure();
+    window.addEventListener("resize", measure);
+    window.addEventListener("orientationchange", measure);
+    return () => {
+      window.removeEventListener("resize", measure);
+      window.removeEventListener("orientationchange", measure);
+    };
+  }, []);
 
   const onPointerDown = useCallback(
     (e: React.PointerEvent) => {
-      dragState.current = { startY: e.clientY, startFraction: fraction };
+      dragState.current = { startY: e.clientY, startFraction: fraction, moved: false };
       setDragging(true);
       e.currentTarget.setPointerCapture(e.pointerId);
     },
@@ -113,6 +132,10 @@ function PortraitLayout() {
       if (h === 0) return;
       // Dragging up (negative dy) grows the sheet.
       const dy = e.clientY - drag.startY;
+      if (!drag.moved) {
+        if (Math.abs(dy) < TAP_SLOP) return;
+        drag.moved = true;
+      }
       setFraction(clamp(drag.startFraction - dy / h));
     },
     [setFraction],
@@ -120,18 +143,26 @@ function PortraitLayout() {
 
   const onPointerUp = useCallback(
     (e: React.PointerEvent) => {
-      if (!dragState.current) return;
+      const drag = dragState.current;
+      if (!drag) return;
       dragState.current = null;
       setDragging(false);
       e.currentTarget.releasePointerCapture(e.pointerId);
-      setFraction((f) => snapNearest(f));
+      // A tap toggles between peek and half — dragging a sheet open one-handed
+      // is awkward, and the handle is the obvious thing to poke.
+      setFraction((f) =>
+        drag.moved ? snapNearest(f) : f > PEEK + Number.EPSILON ? PEEK : SNAP_POINTS[1],
+      );
     },
     [setFraction],
   );
 
   return (
     <div className={classes.root} ref={rootRef}>
-      <div className={classes.portrait} style={{ paddingBottom: `${PEEK * 100}%` }}>
+      <div
+        className={classes.portrait}
+        style={{ paddingBottom: rootHeight ? `${Math.round(PEEK * rootHeight)}px` : undefined }}
+      >
         <div id="left" className={classes.portraitBoard} />
         <div id="bottomRight" className={classes.portraitNotation} />
       </div>

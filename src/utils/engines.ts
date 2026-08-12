@@ -3,6 +3,7 @@ import type { Platform } from "@tauri-apps/plugin-os";
 import useSWR from "swr";
 import { z } from "zod";
 import { type BestMoves, commands, type EngineOptions, type GoMode } from "@/bindings";
+import { APP_WEBSITE } from "@/utils/branding";
 import { unwrap } from "./unwrap";
 
 export const requiredEngineSettings = ["MultiPV", "Threads", "Hash"];
@@ -95,7 +96,7 @@ export function getBestMoves(
 export function useDefaultEngines(os: Platform | undefined, opened: boolean) {
     const { data, error, isLoading } = useSWR(opened ? os : null, async (os: Platform) => {
         const bmi2: boolean = await commands.isBmi2Compatible();
-        const data = await fetch(`https://www.encroissant.org/engines?os=${os}&bmi2=${bmi2}`, {
+        const data = await fetch(`${APP_WEBSITE}/engines?os=${os}&bmi2=${bmi2}`, {
             method: "GET",
         });
         if (!data.ok) {

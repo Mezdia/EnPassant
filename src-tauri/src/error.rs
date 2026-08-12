@@ -48,6 +48,9 @@ pub enum Error {
     #[error(transparent)]
     SystemTime(Box<std::time::SystemTimeError>),
 
+    #[error("OAuth error: {0}")]
+    OAuth(String),
+
     #[error("No stdin")]
     NoStdin,
 
@@ -86,6 +89,9 @@ pub enum Error {
 
     #[error("Engine not initialized")]
     EngineNotInitialized,
+
+    #[error("This platform cannot run downloaded engine binaries")]
+    LocalEnginesUnsupported,
 
     #[error("Engine disconnected")]
     EngineDisconnected,

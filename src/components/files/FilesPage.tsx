@@ -15,9 +15,11 @@ import {
   Tooltip,
 } from "@mantine/core";
 import { useHotkeys, useToggle } from "@mantine/hooks";
+import { notifications } from "@mantine/notifications";
 import {
   IconArrowLeft,
   IconFileDescription,
+  IconFileImport,
   IconFilePlus,
   IconFolderPlus,
   IconSearch,
@@ -29,6 +31,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import useSWR from "swr";
 import { capitalize } from "@/utils/format";
+import { importPgnFiles } from "@/utils/importPgn";
 import { useIsMobilePortrait } from "@/utils/useIsLandscape";
 import ConfirmModal from "../common/ConfirmModal";
 import OpenFolderButton from "../common/OpenFolderButton";
@@ -198,6 +201,29 @@ function FilesPage() {
 
   const refreshDirectory = useCallback(() => mutate(), [mutate]);
 
+  // Mobile has no drag-and-drop and no way to browse to a PGN, so importing is
+  // "pick with the system picker, copy into our documents dir".
+  const handleImport = useCallback(async () => {
+    const { imported, failed } = await importPgnFiles(documentDir);
+    if (imported.length > 0) {
+      await mutate();
+      notifications.show({
+        title: t("Files.Import"),
+        message: t("Files.Import.Success", {
+          count: imported.length,
+          number: imported.length,
+        }),
+      });
+    }
+    if (failed.length > 0) {
+      notifications.show({
+        title: t("Files.Import"),
+        message: t("Files.Import.Failed", { count: failed.length, number: failed.length }),
+        color: "red",
+      });
+    }
+  }, [documentDir, mutate, t]);
+
   const handleConfirmDelete = useCallback(async () => {
     if (!selected) {
       return;
@@ -270,6 +296,16 @@ function FilesPage() {
           <Tooltip label={t("Files.CreateDirectory.Title")}>
             <ActionIcon variant="default" size="lg" onClick={() => toggleCreateDirModal()}>
               <IconFolderPlus size="1rem" />
+            </ActionIcon>
+          </Tooltip>
+          <Tooltip label={t("Files.Import")}>
+            <ActionIcon
+              variant="default"
+              size="lg"
+              onClick={handleImport}
+              aria-label={t("Files.Import")}
+            >
+              <IconFileImport size="1rem" />
             </ActionIcon>
           </Tooltip>
         </Group>

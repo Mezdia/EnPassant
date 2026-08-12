@@ -1,5 +1,16 @@
-import { Button, Checkbox, Group, Modal, NumberInput, Select, Stack } from "@mantine/core";
+import {
+  Alert,
+  Button,
+  Checkbox,
+  Group,
+  Modal,
+  NumberInput,
+  Select,
+  Stack,
+  Text,
+} from "@mantine/core";
 import { useForm } from "@mantine/form";
+import { IconInfoCircle } from "@tabler/icons-react";
 import { useAtom, useAtomValue } from "jotai";
 import { atomWithStorage } from "jotai/utils";
 import { memo, useContext, useEffect, useMemo } from "react";
@@ -9,6 +20,7 @@ import { commands, type GoMode } from "@/bindings";
 import { TreeStateContext } from "@/components/common/TreeStateContext";
 import { enginesAtom, referenceDbAtom } from "@/state/atoms";
 import type { LocalEngine } from "@/utils/engines";
+import { isAndroid } from "@/utils/platform";
 
 const reportSettingsAtom = atomWithStorage("report-settings", {
   novelty: true,
@@ -41,6 +53,9 @@ function ReportModal({
     () => (engines ?? []).filter((e): e is LocalEngine => e.type === "local"),
     [engines],
   );
+  // A report is driven by a downloaded UCI binary, which Android cannot execute
+  // (engine port Phase 1), so there is no engine to offer.
+  const localEnginesSupported = !isAndroid();
   const store = useContext(TreeStateContext)!;
   const addAnalysis = useStore(store, (s) => s.addAnalysis);
 
@@ -109,77 +124,83 @@ function ReportModal({
       onClose={closeReportingMode}
       title={t("Board.Analysis.GenerateReport")}
     >
-      <form onSubmit={form.onSubmit(() => analyze())}>
-        <Stack>
-          <Select
-            allowDeselect={false}
-            withAsterisk
-            label={t("Common.Engine")}
-            placeholder="Pick one"
-            data={
-              localEngines.map((engine) => {
-                return {
-                  value: engine.id,
-                  label: engine.name,
-                };
-              }) ?? []
-            }
-            {...form.getInputProps("engine")}
-          />
-          <Group wrap="nowrap">
+      {!localEnginesSupported ? (
+        <Alert variant="light" color="blue" icon={<IconInfoCircle size="1rem" />}>
+          <Text fz="sm">{t("Board.Opponent.AndroidEngineNote")}</Text>
+        </Alert>
+      ) : (
+        <form onSubmit={form.onSubmit(() => analyze())}>
+          <Stack>
             <Select
               allowDeselect={false}
-              comboboxProps={{
-                position: "bottom",
-                middlewares: { flip: false, shift: false },
-              }}
-              data={[
-                { label: t("GoMode.Depth"), value: "Depth" },
-                { label: t("Board.Analysis.Time"), value: "Time" },
-                { label: t("GoMode.Nodes"), value: "Nodes" },
-              ]}
-              value={form.values.goMode.t}
-              onChange={(v) => {
-                const newGo = form.values.goMode;
-                newGo.t = v as "Depth" | "Time" | "Nodes";
-                form.setFieldValue("goMode", newGo);
-              }}
-            />
-            <NumberInput
-              min={1}
-              value={form.values.goMode.c as number}
-              onChange={(v) =>
-                form.setFieldValue("goMode", {
-                  ...(form.values.goMode as any),
-                  c: (v || 1) as number,
-                })
+              withAsterisk
+              label={t("Common.Engine")}
+              placeholder="Pick one"
+              data={
+                localEngines.map((engine) => {
+                  return {
+                    value: engine.id,
+                    label: engine.name,
+                  };
+                }) ?? []
               }
+              {...form.getInputProps("engine")}
             />
-          </Group>
+            <Group wrap="nowrap">
+              <Select
+                allowDeselect={false}
+                comboboxProps={{
+                  position: "bottom",
+                  middlewares: { flip: false, shift: false },
+                }}
+                data={[
+                  { label: t("GoMode.Depth"), value: "Depth" },
+                  { label: t("Board.Analysis.Time"), value: "Time" },
+                  { label: t("GoMode.Nodes"), value: "Nodes" },
+                ]}
+                value={form.values.goMode.t}
+                onChange={(v) => {
+                  const newGo = form.values.goMode;
+                  newGo.t = v as "Depth" | "Time" | "Nodes";
+                  form.setFieldValue("goMode", newGo);
+                }}
+              />
+              <NumberInput
+                min={1}
+                value={form.values.goMode.c as number}
+                onChange={(v) =>
+                  form.setFieldValue("goMode", {
+                    ...(form.values.goMode as any),
+                    c: (v || 1) as number,
+                  })
+                }
+              />
+            </Group>
 
-          <Checkbox
-            label={t("Board.Analysis.Reversed")}
-            description={t("Board.Analysis.Reversed.Desc")}
-            {...form.getInputProps("reversed", { type: "checkbox" })}
-          />
+            <Checkbox
+              label={t("Board.Analysis.Reversed")}
+              description={t("Board.Analysis.Reversed.Desc")}
+              {...form.getInputProps("reversed", { type: "checkbox" })}
+            />
 
-          <Checkbox
-            label={t("Board.Analysis.AnnotateNovelties")}
-            description={t("Board.Analysis.AnnotateNovelties.Desc")}
-            {...form.getInputProps("novelty", { type: "checkbox" })}
-          />
+            <Checkbox
+              label={t("Board.Analysis.AnnotateNovelties")}
+              description={t("Board.Analysis.AnnotateNovelties.Desc")}
+              {...form.getInputProps("novelty", { type: "checkbox" })}
+            />
 
-          <Checkbox
-            label={t("Board.Analysis.ShowVariations")}
-            description={t("Board.Analysis.ShowVariations.Desc")}
-            {...form.getInputProps("variations", { type: "checkbox" })}
-          />
+            <Checkbox
+              label={t("Board.Analysis.ShowVariations")}
+              description={t("Board.Analysis.ShowVariations.Desc")}
+              {...form.getInputProps("variations", { type: "checkbox" })}
+            />
 
-          <Group justify="right">
-            <Button type="submit">{t("Board.Analysis.Analyze")}</Button>
-          </Group>
-        </Stack>
-      </form>
+            <Group justify="right">
+              <Button type="submit">{t("Board.Analysis.Analyze")}</Button>
+            </Group>
+          </Stack>
+        </form>
+      )}
     </Modal>
   );
 }

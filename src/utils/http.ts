@@ -1,16 +1,14 @@
 import { getVersion } from "@tauri-apps/api/app";
+import { APP_REPOSITORY, APP_SLUG } from "@/utils/branding";
 
-const APP_NAME = "EnCroissant";
-const APP_REPO = "https://github.com/franciscoBSalgueiro/en-croissant";
-
-let userAgent = APP_NAME;
+let userAgent = APP_SLUG;
 
 export async function initUserAgent(): Promise<void> {
     try {
         const version = await getVersion();
-        userAgent = `${APP_NAME}/${version} (${APP_REPO})`;
+        userAgent = `${APP_SLUG}/${version} (${APP_REPOSITORY})`;
     } catch {
-        userAgent = `${APP_NAME} (${APP_REPO})`;
+        userAgent = `${APP_SLUG} (${APP_REPOSITORY})`;
     }
 }
 

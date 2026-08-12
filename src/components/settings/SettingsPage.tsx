@@ -1,7 +1,9 @@
 import {
   ActionIcon,
+  Anchor,
   Box,
   Card,
+  Code,
   Group,
   Paper,
   ScrollArea,
@@ -70,8 +72,10 @@ import {
   telemetryEnabledAtom,
 } from "@/state/atoms";
 import { keyMapAtom } from "@/state/keybinds";
-import { isAndroid, isMobile } from "@/utils/platform";
+import { APP_NAME } from "@/utils/branding";
+import { isMobile } from "@/utils/platform";
 import { useIsMobilePortrait } from "@/utils/useIsLandscape";
+import AboutModal from "../About";
 import FileInput from "../common/FileInput";
 import BoardSelect from "./BoardSelect";
 import ColorControl from "./ColorControl";
@@ -105,6 +109,8 @@ interface SettingItem {
   keywords?: string[];
   /** Shown only on mobile; hidden on desktop. */
   mobileOnly?: boolean;
+  /** Shown only on desktop; hidden on mobile (needs a mouse or a real keyboard). */
+  desktopOnly?: boolean;
   render: () => React.ReactNode;
 }
 
@@ -138,6 +144,16 @@ function SettingRow({
   );
 }
 
+/**
+ * Mobile keeps its files in app-private storage: the paths are fixed and there
+ * is no folder picker on Android, so they are shown rather than edited.
+ */
+function ReadOnlyPath({ path }: { path: string }) {
+  return (
+    <Code style={{ maxWidth: "60%", overflowWrap: "anywhere", whiteSpace: "normal" }}>{path}</Code>
+  );
+}
+
 function TelemetrySwitch() {
   const { t } = useTranslation();
   const [enabled, setEnabled] = useAtom(telemetryEnabledAtom);
@@ -167,6 +183,7 @@ export default function Page() {
   const { t, i18n } = useTranslation();
   const [searchQuery, setSearchQuery] = useState("");
   const searchInputRef = useRef<HTMLInputElement>(null);
+  const [aboutOpened, setAboutOpened] = useState(false);
   // Portrait drill-in: the category the user tapped, null when showing the list.
   const [drillCategory, setDrillCategory] = useState<SettingCategory | null>(null);
 
@@ -195,6 +212,30 @@ export default function Page() {
   const [showCoordinates, setShowCoordinates] = useAtom(showCoordinatesAtom);
   const [materialDisplay, setMaterialDisplay] = useAtom(materialDisplayAtom);
   const [practiceAutoDifficulty, setPracticeAutoDifficulty] = useAtom(practiceAutoDifficultyAtom);
+
+  // Portrait (phone held upright) has no room for a category rail, so the
+  // categories become a tappable list that drills into a category's own screen
+  // behind a back button. Landscape and desktop keep the vertical rail.
+  const mobilePortrait = useIsMobilePortrait();
+  const isMobilePlatform = isMobile();
+
+  // Categories in display order; keybinds is desktop-only (no physical keyboard
+  // on a phone), mobile is mobile-only.
+  const visibleCategories: SettingCategory[] = useMemo(
+    () => [
+      "board",
+      "inputs",
+      ...(isMobilePlatform ? (["mobile"] as SettingCategory[]) : []),
+      "anarchy",
+      "appearance",
+      "sound",
+      ...(isMobilePlatform ? [] : (["keybinds"] as SettingCategory[])),
+      "directories",
+      "repertoire",
+      "privacy",
+    ],
+    [isMobilePlatform],
+  );
 
   const settings: SettingItem[] = useMemo(
     () => [
@@ -252,6 +293,8 @@ export default function Page() {
       {
         id: "move-method",
         category: "board",
+        // Mobile gets its own tap-to-move control under "Mobile Input".
+        desktopOnly: true,
         title: t("Settings.MoveMethod"),
         description: t("Settings.MoveMethod.Desc"),
         keywords: ["drag", "click", "move", "pieces"],
@@ -330,6 +373,8 @@ export default function Page() {
       {
         id: "preview-board",
         category: "board",
+        // Hover previews need a pointer.
+        desktopOnly: true,
         title: t("Settings.PreviewBoard"),
         description: t("Settings.PreviewBoard.Desc"),
         keywords: ["preview", "hover"],
@@ -346,6 +391,8 @@ export default function Page() {
       {
         id: "scroll-moves",
         category: "board",
+        // Scroll wheel only.
+        desktopOnly: true,
         title: t("Settings.ScrollThroughMoves"),
         description: t("Settings.ScrollThroughMoves.Desc"),
         keywords: ["scroll", "moves", "wheel"],
@@ -429,9 +476,9 @@ export default function Page() {
       {
         id: "forced-en-passant",
         category: "anarchy",
-        title: t("Settings.Anarchy.ForcedEnCroissant"),
-        description: t("Settings.Anarchy.ForcedEnCroissant.Desc"),
-        keywords: ["en passant", "forced", "croissant"],
+        title: t("Settings.Anarchy.ForcedEnPassant"),
+        description: t("Settings.Anarchy.ForcedEnPassant.Desc"),
+        keywords: ["en passant", "forced", "anarchy"],
         render: () => <SettingsSwitch atom={forcedEnPassantAtom} />,
       },
       // Appearance settings
@@ -595,19 +642,22 @@ export default function Page() {
         title: t("Settings.Directories.Files"),
         description: t("Settings.Directories.Files.Desc"),
         keywords: ["files", "directory", "folder", "path"],
-        render: () => (
-          <FileInput
-            onClick={async () => {
-              const selected = await open({
-                multiple: false,
-                directory: true,
-              });
-              if (!selected || typeof selected !== "string") return;
-              setFilesDirectory(selected);
-            }}
-            filename={filesDirectory || null}
-          />
-        ),
+        render: () =>
+          isMobilePlatform ? (
+            <ReadOnlyPath path={filesDirectory} />
+          ) : (
+            <FileInput
+              onClick={async () => {
+                const selected = await open({
+                  multiple: false,
+                  directory: true,
+                });
+                if (!selected || typeof selected !== "string") return;
+                setFilesDirectory(selected);
+              }}
+              filename={filesDirectory || null}
+            />
+          ),
       },
       {
         id: "databases-directory",
@@ -615,19 +665,22 @@ export default function Page() {
         title: t("Settings.Directories.Databases"),
         description: t("Settings.Directories.Databases.Desc"),
         keywords: ["databases", "directory", "folder", "path"],
-        render: () => (
-          <FileInput
-            onClick={async () => {
-              const selected = await open({
-                multiple: false,
-                directory: true,
-              });
-              if (!selected || typeof selected !== "string") return;
-              setDatabasesDirectory(selected);
-            }}
-            filename={databasesDirectory || null}
-          />
-        ),
+        render: () =>
+          isMobilePlatform ? (
+            <ReadOnlyPath path={databasesDirectory} />
+          ) : (
+            <FileInput
+              onClick={async () => {
+                const selected = await open({
+                  multiple: false,
+                  directory: true,
+                });
+                if (!selected || typeof selected !== "string") return;
+                setDatabasesDirectory(selected);
+              }}
+              filename={databasesDirectory || null}
+            />
+          ),
       },
       {
         id: "engines-directory",
@@ -635,19 +688,22 @@ export default function Page() {
         title: t("Settings.Directories.Engines"),
         description: t("Settings.Directories.Engines.Desc"),
         keywords: ["engines", "directory", "folder", "path"],
-        render: () => (
-          <FileInput
-            onClick={async () => {
-              const selected = await open({
-                multiple: false,
-                directory: true,
-              });
-              if (!selected || typeof selected !== "string") return;
-              setEnginesDirectory(selected);
-            }}
-            filename={enginesDirectory || null}
-          />
-        ),
+        render: () =>
+          isMobilePlatform ? (
+            <ReadOnlyPath path={enginesDirectory} />
+          ) : (
+            <FileInput
+              onClick={async () => {
+                const selected = await open({
+                  multiple: false,
+                  directory: true,
+                });
+                if (!selected || typeof selected !== "string") return;
+                setEnginesDirectory(selected);
+              }}
+              filename={enginesDirectory || null}
+            />
+          ),
       },
       {
         id: "puzzles-directory",
@@ -655,19 +711,22 @@ export default function Page() {
         title: t("Settings.Directories.Puzzles"),
         description: t("Settings.Directories.Puzzles.Desc"),
         keywords: ["puzzles", "directory", "folder", "path"],
-        render: () => (
-          <FileInput
-            onClick={async () => {
-              const selected = await open({
-                multiple: false,
-                directory: true,
-              });
-              if (!selected || typeof selected !== "string") return;
-              setPuzzlesDirectory(selected);
-            }}
-            filename={puzzlesDirectory || null}
-          />
-        ),
+        render: () =>
+          isMobilePlatform ? (
+            <ReadOnlyPath path={puzzlesDirectory} />
+          ) : (
+            <FileInput
+              onClick={async () => {
+                const selected = await open({
+                  multiple: false,
+                  directory: true,
+                });
+                if (!selected || typeof selected !== "string") return;
+                setPuzzlesDirectory(selected);
+              }}
+              filename={puzzlesDirectory || null}
+            />
+          ),
       },
       // Privacy settings
       {
@@ -682,6 +741,7 @@ export default function Page() {
     [
       t,
       i18n,
+      isMobilePlatform,
       moveNotationType,
       moveMethod,
       isNative,
@@ -706,6 +766,10 @@ export default function Page() {
   );
 
   useHotkeys([["mod+f", () => searchInputRef.current?.focus()]]);
+
+  const directoriesDescription = isMobilePlatform
+    ? t("Settings.Directories.Mobile.Desc")
+    : t("Settings.Directories.Desc");
 
   const categoryInfo: Record<
     SettingCategory,
@@ -749,7 +813,7 @@ export default function Page() {
       },
       directories: {
         title: t("Settings.Directories"),
-        description: t("Settings.Directories.Desc"),
+        description: directoriesDescription,
         icon: <IconFolder size="1rem" />,
       },
       repertoire: {
@@ -763,13 +827,26 @@ export default function Page() {
         icon: <IconShield size="1rem" />,
       },
     }),
-    [t],
+    [t, directoriesDescription],
+  );
+
+  // A setting is only reachable if its category is shown on this platform, and
+  // platform-specific rows (haptics, hover previews…) only where they apply.
+  const visibleSettings = useMemo(
+    () =>
+      settings.filter(
+        (setting) =>
+          visibleCategories.includes(setting.category) &&
+          !(setting.mobileOnly && !isMobilePlatform) &&
+          !(setting.desktopOnly && isMobilePlatform),
+      ),
+    [settings, visibleCategories, isMobilePlatform],
   );
 
   const filteredSettings = useMemo(() => {
     if (!searchQuery.trim()) return null;
     const query = searchQuery.toLowerCase();
-    return settings.filter(
+    return visibleSettings.filter(
       (setting) =>
         setting.title.toLowerCase().includes(query) ||
         setting.description.toLowerCase().includes(query) ||
@@ -777,7 +854,7 @@ export default function Page() {
         setting.id.toLowerCase().includes(query) ||
         setting.keywords?.some((kw) => kw.toLowerCase().includes(query)),
     );
-  }, [searchQuery, settings, categoryInfo]);
+  }, [searchQuery, visibleSettings, categoryInfo]);
 
   const renderSearchResults = () => {
     if (!filteredSettings) return null;
@@ -786,7 +863,7 @@ export default function Page() {
       return (
         <Card withBorder p="lg" className={classes.card} w="100%">
           <Text c="dimmed" ta="center">
-            No settings found for "{searchQuery}"
+            {t("Settings.NoResults", { query: searchQuery })}
           </Text>
         </Card>
       );
@@ -826,7 +903,7 @@ export default function Page() {
   };
 
   const renderCategorySettings = (category: SettingCategory) => {
-    const categorySettings = settings.filter((s) => s.category === category);
+    const categorySettings = visibleSettings.filter((s) => s.category === category);
     return categorySettings.map((setting) => (
       <SettingRow key={setting.id} title={setting.title} description={setting.description}>
         {setting.render()}
@@ -854,12 +931,30 @@ export default function Page() {
     />
   );
 
+  // Mobile has no native menu bar, so the version footer doubles as the only way
+  // in to the About dialog.
+  const versionFooter = isMobilePlatform ? (
+    <Group justify="flex-end" py="md">
+      <Anchor
+        component="button"
+        type="button"
+        size="xs"
+        c="dimmed"
+        onClick={() => setAboutOpened(true)}
+      >
+        {APP_NAME} v{version}
+      </Anchor>
+    </Group>
+  ) : (
+    <Text size="xs" c="dimmed" ta="right" py="md">
+      {APP_NAME} v{version}
+    </Text>
+  );
+
   const searchResults = filteredSettings ? (
     <ScrollArea flex={1} px="md">
       {renderSearchResults()}
-      <Text size="xs" c="dimmed" ta="right" py="md">
-        En Croissant v{version}
-      </Text>
+      {versionFooter}
     </ScrollArea>
   ) : null;
 
@@ -899,26 +994,6 @@ export default function Page() {
     </Tabs.Panel>
   );
 
-  // Portrait (Android phone held upright) has no room for a category rail, so
-  // the categories become a tappable list that drills into a category's own
-  // screen behind a back button. Landscape and desktop keep the vertical rail.
-  const mobilePortrait = useIsMobilePortrait();
-  const isMobilePlatform = isMobile();
-
-  // Categories in display order; keybinds and directories are desktop-only
-  // (no keyboard / no free-form paths on Android), mobile is mobile-only.
-  const visibleCategories: SettingCategory[] = [
-    "board",
-    "inputs",
-    ...(isMobilePlatform ? (["mobile"] as SettingCategory[]) : []),
-    "anarchy",
-    "appearance",
-    "sound",
-    ...(isAndroid() ? [] : (["keybinds", "directories"] as SettingCategory[])),
-    "repertoire",
-    "privacy",
-  ];
-
   const renderDrillPanel = (category: SettingCategory) => (
     <Stack h="100%" gap={0} style={{ overflow: "hidden" }}>
       <Group gap="xs" pt="sm" pb="sm" px="xs" wrap="nowrap">
@@ -935,17 +1010,13 @@ export default function Page() {
       </Group>
       <ScrollArea flex={1} px="md" pb="md">
         <Card withBorder p="lg" className={classes.card} w="100%">
-          <Text size="lg" fw={500} className={classes.title}>
-            {categoryInfo[category].title}
-          </Text>
-          <Text size="xs" c="dimmed" mt={3} mb="lg">
+          {/* The title is already in the drill header above. */}
+          <Text size="xs" c="dimmed" mb="lg">
             {categoryInfo[category].description}
           </Text>
           {renderCategorySettings(category)}
         </Card>
-        <Text size="xs" c="dimmed" ta="right" pt="md">
-          En Croissant v{version}
-        </Text>
+        {versionFooter}
       </ScrollArea>
     </Stack>
   );
@@ -979,15 +1050,14 @@ export default function Page() {
           </Paper>
         ))}
       </Stack>
-      <Text size="xs" c="dimmed" ta="right" py="md">
-        En Croissant v{version}
-      </Text>
+      {versionFooter}
     </ScrollArea>
   );
 
   if (mobilePortrait) {
     return (
       <Stack h="100%" gap="xs" px="sm" pb="sm" style={{ overflow: "hidden" }}>
+        <AboutModal opened={aboutOpened} setOpened={setAboutOpened} />
         {drillCategory ? (
           renderDrillPanel(drillCategory)
         ) : (
@@ -1005,6 +1075,7 @@ export default function Page() {
 
   return (
     <Stack h="100%" gap={0}>
+      {isMobilePlatform && <AboutModal opened={aboutOpened} setOpened={setAboutOpened} />}
       <Group px="md" pt="md" pb="sm">
         {searchBox}
       </Group>
@@ -1041,16 +1112,14 @@ export default function Page() {
             <Tabs.Tab value="sound" leftSection={<IconVolume size="1rem" />}>
               {t("Settings.Sound")}
             </Tabs.Tab>
-            {!isAndroid() && (
+            {!isMobilePlatform && (
               <Tabs.Tab value="keybinds" leftSection={<IconKeyboard size="1rem" />}>
                 {t("Settings.Keybinds")}
               </Tabs.Tab>
             )}
-            {!isAndroid() && (
-              <Tabs.Tab value="directories" leftSection={<IconFolder size="1rem" />}>
-                {t("Settings.Directories")}
-              </Tabs.Tab>
-            )}
+            <Tabs.Tab value="directories" leftSection={<IconFolder size="1rem" />}>
+              {t("Settings.Directories")}
+            </Tabs.Tab>
             <Tabs.Tab value="repertoire" leftSection={<IconBook size="1rem" />}>
               {t("Settings.Repertoire")}
             </Tabs.Tab>
@@ -1123,19 +1192,17 @@ export default function Page() {
                   {renderCategorySettings("sound")}
                 </Tabs.Panel>
 
-                {!isAndroid() && keybindsPanel}
+                {!isMobilePlatform && keybindsPanel}
 
-                {!isAndroid() && (
-                  <Tabs.Panel value="directories">
-                    <Text size="lg" fw={500} className={classes.title}>
-                      {t("Settings.Directories")}
-                    </Text>
-                    <Text size="xs" c="dimmed" mt={3} mb="lg">
-                      {t("Settings.Directories.Desc")}
-                    </Text>
-                    {renderCategorySettings("directories")}
-                  </Tabs.Panel>
-                )}
+                <Tabs.Panel value="directories">
+                  <Text size="lg" fw={500} className={classes.title}>
+                    {t("Settings.Directories")}
+                  </Text>
+                  <Text size="xs" c="dimmed" mt={3} mb="lg">
+                    {directoriesDescription}
+                  </Text>
+                  {renderCategorySettings("directories")}
+                </Tabs.Panel>
 
                 <Tabs.Panel value="repertoire">
                   <Text size="lg" fw={500} className={classes.title}>
@@ -1158,9 +1225,7 @@ export default function Page() {
                 </Tabs.Panel>
               </Card>
             </ScrollArea>
-            <Text size="xs" c="dimmed" ta="right">
-              En Croissant v{version}
-            </Text>
+            {versionFooter}
           </Stack>
         </Tabs>
       )}

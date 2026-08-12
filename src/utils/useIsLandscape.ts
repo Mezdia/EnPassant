@@ -6,7 +6,7 @@ import { isDesktop } from "@/utils/platform";
  * Falls back to landscape=false (portrait) when matchMedia is unavailable.
  */
 export function useIsLandscape(): boolean {
-  return useMediaQuery("(orientation: landscape)", false) ?? false;
+    return useMediaQuery("(orientation: landscape)", false) ?? false;
 }
 
 /**
@@ -14,6 +14,6 @@ export function useIsLandscape(): boolean {
  * second column, so master/detail has to become a drill-in.
  */
 export function useIsMobilePortrait(): boolean {
-  const landscape = useIsLandscape();
-  return !isDesktop() && !landscape;
+    const landscape = useIsLandscape();
+    return !isDesktop() && !landscape;
 }

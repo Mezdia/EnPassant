@@ -53,7 +53,7 @@ import {
   type LocalEngine,
   requiredEngineSettings,
 } from "@/utils/engines";
-import { isAndroid } from "@/utils/platform";
+import { isAndroid, isMobile } from "@/utils/platform";
 import { unwrap } from "@/utils/unwrap";
 import { useIsMobilePortrait } from "@/utils/useIsLandscape";
 import ConfirmModal from "../common/ConfirmModal";
@@ -525,22 +525,25 @@ function EngineSettings({
                           value={v.value || ""}
                           onChange={(e) => setSetting(v.name, e.currentTarget.value, v.default)}
                         />
-                        <Button
-                          variant="default"
-                          leftSection={<IconFolder size="1rem" />}
-                          onClick={async () => {
-                            const selected = await open({
-                              multiple: true,
-                              directory: true,
-                            });
-                            if (!selected) return;
+                        {/* Mobile has no folder picker, only a document picker. */}
+                        {!isMobile() && (
+                          <Button
+                            variant="default"
+                            leftSection={<IconFolder size="1rem" />}
+                            onClick={async () => {
+                              const selected = await open({
+                                multiple: true,
+                                directory: true,
+                              });
+                              if (!selected) return;
 
-                            const directories = Array.isArray(selected) ? selected : [selected];
-                            setSetting(v.name, directories.join(syzygyPathSeparator), v.default);
-                          }}
-                        >
-                          {t("Common.Open")}
-                        </Button>
+                              const directories = Array.isArray(selected) ? selected : [selected];
+                              setSetting(v.name, directories.join(syzygyPathSeparator), v.default);
+                            }}
+                          >
+                            {t("Common.Open")}
+                          </Button>
+                        )}
                       </Group>
                     );
                   }
