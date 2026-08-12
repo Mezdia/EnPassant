@@ -15,12 +15,7 @@ import {
   Text,
 } from "@mantine/core";
 import { useForm } from "@mantine/form";
-import {
-  IconAlertCircle,
-  IconDatabase,
-  IconInfoCircle,
-  IconTrophy,
-} from "@tabler/icons-react";
+import { IconAlertCircle, IconDatabase, IconInfoCircle, IconTrophy } from "@tabler/icons-react";
 import { join, resolve } from "@tauri-apps/api/path";
 import { useAtom } from "jotai";
 import { useCallback, useState } from "react";

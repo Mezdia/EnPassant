@@ -31,7 +31,9 @@ import {
   deckAtomFamily,
   enableBoardScrollAtom,
   eraseDrawablesOnClickAtom,
+  flipBoardOnDoubleTapAtom,
   forcedEnPassantAtom,
+  hapticsEnabledAtom,
   materialDisplayAtom,
   moveHighlightAtom,
   moveInputAtom,
@@ -137,6 +139,8 @@ function Board({
   const showConsecutiveArrows = useAtomValue(showConsecutiveArrowsAtom);
   const eraseDrawablesOnClick = useAtomValue(eraseDrawablesOnClickAtom);
   const autoPromote = useAtomValue(autoPromoteAtom);
+  const hapticsEnabled = useAtomValue(hapticsEnabledAtom);
+  const flipOnDoubleTap = useAtomValue(flipBoardOnDoubleTapAtom);
   const forcedEP = useAtomValue(forcedEnPassantAtom);
   const showCoordinates = useAtomValue(showCoordinatesAtom);
   const materialDisplay = useAtomValue(materialDisplayAtom);
@@ -157,6 +161,18 @@ function Board({
       orientation: orientation === "black" ? "white" : "black",
     });
 
+  // Navigator.vibrate is a best-effort haptic feedback on Android; the call
+  // throws in browsers that lack it, so it's guarded by the settings flag.
+  const vibrate = useCallback(() => {
+    if (hapticsEnabled && typeof navigator !== "undefined" && navigator.vibrate) {
+      try {
+        navigator.vibrate(15);
+      } catch {
+        // no-op: haptics are a nicety, never a dependency
+      }
+    }
+  }, [hapticsEnabled]);
+
   const keyMap = useAtomValue(keyMapAtom);
   useHotkeys(keyMap.SWAP_ORIENTATION.keys, () => toggleOrientation());
   const currentTab = useAtomValue(currentTabAtom);
@@ -176,6 +192,7 @@ function Board({
 
   async function makeMove(move: NormalMove) {
     if (!pos) return;
+    vibrate();
     const san = makeSan(pos, move);
     if (practicing) {
       const c = deck.positions.find((c) => c.fen === currentNode.fen);
@@ -476,6 +493,12 @@ function Board({
               ref={boardRef}
               onClick={() => {
                 eraseDrawablesOnClick && clearShapes();
+              }}
+              onDoubleClick={() => {
+                if (flipOnDoubleTap) {
+                  toggleOrientation();
+                  vibrate();
+                }
               }}
               onWheel={(e) => {
                 if (enableBoardScroll) {

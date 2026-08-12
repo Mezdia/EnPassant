@@ -1,5 +1,6 @@
 import {
   ActionIcon,
+  Box,
   Center,
   Chip,
   Divider,
@@ -15,6 +16,7 @@ import {
 } from "@mantine/core";
 import { useHotkeys, useToggle } from "@mantine/hooks";
 import {
+  IconArrowLeft,
   IconFileDescription,
   IconFilePlus,
   IconFolderPlus,
@@ -27,6 +29,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import useSWR from "swr";
 import { capitalize } from "@/utils/format";
+import { useIsMobilePortrait } from "@/utils/useIsLandscape";
 import ConfirmModal from "../common/ConfirmModal";
 import OpenFolderButton from "../common/OpenFolderButton";
 import DirectoryTree from "./DirectoryTree";
@@ -77,6 +80,7 @@ const useFileDirectory = (dir: string) => {
 
 function FilesPage() {
   const { t } = useTranslation();
+  const portrait = useIsMobilePortrait();
 
   const { documentDir } = useLoaderData({ from: "/files" });
   const { files, isLoading, error, mutate } = useFileDirectory(documentDir);
@@ -224,8 +228,146 @@ function FilesPage() {
     [draggingPath, hoverPath, registerFolder, checkHover, documentDir],
   );
 
-  return (
-    <Stack h="100%">
+  const confirmDelete = (
+    <ConfirmModal
+      title={t("Files.Delete.Title")}
+      description={t("Files.Delete.Message", {
+        fileName: selected?.name ?? "",
+      })}
+      opened={deleteModal}
+      onClose={toggleDeleteModal}
+      onConfirm={handleConfirmDelete}
+    />
+  );
+
+  const list = (
+    <Paper withBorder style={{ borderWidth: 2 }} h="100%">
+      <Stack ref={dropzoneRef} gap={0} h="100%" style={{ overflow: "hidden" }}>
+        <Group p="xs" gap="xs">
+          <Input
+            size="sm"
+            style={{ flexGrow: 1 }}
+            leftSection={<IconSearch size="1rem" />}
+            placeholder={t("Common.Search")}
+            value={search}
+            onChange={(e) => setSearch(e.currentTarget.value)}
+            ref={searchInputRef}
+            onKeyDown={(e) => {
+              if (e.key === "f" && (e.metaKey || e.ctrlKey)) {
+                e.preventDefault();
+              }
+              if (e.key === "Escape") {
+                setSearch("");
+                searchInputRef.current?.blur();
+              }
+            }}
+          />
+          <Tooltip label={t("Files.CreateFile.Title")}>
+            <ActionIcon variant="default" size="lg" onClick={() => toggleCreateModal()}>
+              <IconFilePlus size="1rem" />
+            </ActionIcon>
+          </Tooltip>
+          <Tooltip label={t("Files.CreateDirectory.Title")}>
+            <ActionIcon variant="default" size="lg" onClick={() => toggleCreateDirModal()}>
+              <IconFolderPlus size="1rem" />
+            </ActionIcon>
+          </Tooltip>
+        </Group>
+        <Divider />
+        <Group px="xs" py={6} gap={4} wrap="wrap">
+          {FILE_TYPES.map((type) => (
+            <Chip
+              variant="outline"
+              key={type}
+              size="sm"
+              checked={filter === type}
+              onChange={(checked) => setFilter(checked ? type : null)}
+            >
+              {t(`Files.FileType.${capitalize(type)}`)}
+            </Chip>
+          ))}
+        </Group>
+        <Divider />
+        <ScrollArea flex={1}>
+          {error ? (
+            <Center h="100%">
+              <Text c="red">{t("Files.LoadingFailed")}</Text>
+            </Center>
+          ) : isLoading ? (
+            <Center h="100%">
+              <Text c="dimmed">{t("Common.Loading")}</Text>
+            </Center>
+          ) : (
+            <DragContext.Provider value={dragContextValue}>
+              <DirectoryTree
+                files={files}
+                refreshDirectory={refreshDirectory}
+                selectedFile={selected}
+                setSelectedFile={setSelected}
+                onRequestDelete={requestDelete}
+                search={search}
+                filter={filter || ""}
+              />
+            </DragContext.Provider>
+          )}
+        </ScrollArea>
+      </Stack>
+    </Paper>
+  );
+
+  const detail = selected ? (
+    <>
+      {confirmDelete}
+      {selected.type === "file" ? (
+        <Paper withBorder style={{ borderWidth: 2 }} pt="md" h="100%">
+          <FileCard
+            selected={selected}
+            games={games}
+            setGames={setGames}
+            toggleEditModal={toggleEditModal}
+            onDelete={requestDelete}
+          />
+        </Paper>
+      ) : (
+        <Paper withBorder style={{ borderWidth: 2 }} p="md" h="100%">
+          <Center h="100%">
+            <Stack align="center" gap="xs">
+              <ThemeIcon size={80} radius="100%" variant="light" color="gray">
+                <IconFolder size={40} />
+              </ThemeIcon>
+              <Text fw={600} size="lg">
+                {selected.name}
+              </Text>
+              <Text c="dimmed" size="sm">
+                {(selected as Directory).children.length === 1
+                  ? t("Files.ItemCount", { count: 1, number: 1 })
+                  : t("Files.ItemCount", {
+                      count: (selected as Directory).children.length,
+                      number: (selected as Directory).children.length,
+                    })}
+              </Text>
+            </Stack>
+          </Center>
+        </Paper>
+      )}
+    </>
+  ) : (
+    <Paper withBorder style={{ borderWidth: 2 }} p="md" h="100%">
+      <Center h="100%">
+        <Stack align="center" gap="sm">
+          <ThemeIcon size={80} radius="100%" variant="light" color="gray">
+            <IconFileDescription size={40} />
+          </ThemeIcon>
+          <Text c="dimmed" fw={500} size="lg">
+            {t("Files.NoSelection")}
+          </Text>
+        </Stack>
+      </Center>
+    </Paper>
+  );
+
+  const modals = (
+    <>
       {files && (
         <CreateModal
           opened={createModal}
@@ -252,139 +394,48 @@ function FilesPage() {
           metadata={selected as FileMetadata}
         />
       )}
+    </>
+  );
+
+  if (portrait) {
+    const drilledIn = selected !== null;
+    return (
+      <Stack h="100%" gap="xs" px="sm" pb="sm" style={{ overflow: "hidden" }}>
+        {modals}
+        {drilledIn ? (
+          <Group gap="xs" pt="sm" wrap="nowrap">
+            <ActionIcon
+              variant="default"
+              onClick={() => setSelected(null)}
+              aria-label={t("Common.Back")}
+            >
+              <IconArrowLeft size="1rem" />
+            </ActionIcon>
+            <Text fw="bold" truncate>
+              {selected.name}
+            </Text>
+          </Group>
+        ) : (
+          <Group align="baseline" pt="sm" gap="xs">
+            <Title order={3}>{t("Files.Title")}</Title>
+            <OpenFolderButton folder={documentDir} />
+          </Group>
+        )}
+        <Box style={{ flex: 1, overflow: "hidden" }}>{drilledIn ? detail : list}</Box>
+      </Stack>
+    );
+  }
+
+  return (
+    <Stack h="100%">
+      {modals}
       <Group align="baseline" pl="lg" py="sm">
         <Title>{t("Files.Title")}</Title>
         <OpenFolderButton folder={documentDir} />
       </Group>
-
       <Group grow flex={1} style={{ overflow: "hidden" }} px="md" pb="md">
-        <Paper withBorder style={{ borderWidth: 2 }} h="100%">
-          <Stack ref={dropzoneRef} gap={0} h="100%" style={{ overflow: "hidden" }}>
-            <Group p="xs" gap="xs">
-              <Input
-                size="sm"
-                style={{ flexGrow: 1 }}
-                leftSection={<IconSearch size="1rem" />}
-                placeholder={t("Common.Search")}
-                value={search}
-                onChange={(e) => setSearch(e.currentTarget.value)}
-                ref={searchInputRef}
-                onKeyDown={(e) => {
-                  if (e.key === "f" && (e.metaKey || e.ctrlKey)) {
-                    e.preventDefault();
-                  }
-                  if (e.key === "Escape") {
-                    setSearch("");
-                    searchInputRef.current?.blur();
-                  }
-                }}
-              />
-              <Tooltip label={t("Files.CreateFile.Title")}>
-                <ActionIcon variant="default" size="lg" onClick={() => toggleCreateModal()}>
-                  <IconFilePlus size="1rem" />
-                </ActionIcon>
-              </Tooltip>
-              <Tooltip label={t("Files.CreateDirectory.Title")}>
-                <ActionIcon variant="default" size="lg" onClick={() => toggleCreateDirModal()}>
-                  <IconFolderPlus size="1rem" />
-                </ActionIcon>
-              </Tooltip>
-            </Group>
-            <Divider />
-            <Group px="xs" py={6} gap={4} wrap="wrap">
-              {FILE_TYPES.map((type) => (
-                <Chip
-                  variant="outline"
-                  key={type}
-                  size="sm"
-                  checked={filter === type}
-                  onChange={(checked) => setFilter(checked ? type : null)}
-                >
-                  {t(`Files.FileType.${capitalize(type)}`)}
-                </Chip>
-              ))}
-            </Group>
-            <Divider />
-            <ScrollArea flex={1}>
-              {error ? (
-                <Center h="100%">
-                  <Text c="red">{t("Files.LoadingFailed")}</Text>
-                </Center>
-              ) : isLoading ? (
-                <Center h="100%">
-                  <Text c="dimmed">{t("Common.Loading")}</Text>
-                </Center>
-              ) : (
-                <DragContext.Provider value={dragContextValue}>
-                  <DirectoryTree
-                    files={files}
-                    refreshDirectory={refreshDirectory}
-                    selectedFile={selected}
-                    setSelectedFile={setSelected}
-                    onRequestDelete={requestDelete}
-                    search={search}
-                    filter={filter || ""}
-                  />
-                </DragContext.Provider>
-              )}
-            </ScrollArea>
-          </Stack>
-        </Paper>
-
-        {selected ? (
-          <>
-            <ConfirmModal
-              title={t("Files.Delete.Title")}
-              description={t("Files.Delete.Message", {
-                fileName: selected.name,
-              })}
-              opened={deleteModal}
-              onClose={toggleDeleteModal}
-              onConfirm={handleConfirmDelete}
-            />
-            {selected.type === "file" ? (
-              <Paper withBorder style={{ borderWidth: 2 }} pt="md" h="100%">
-                <FileCard
-                  selected={selected}
-                  games={games}
-                  setGames={setGames}
-                  toggleEditModal={toggleEditModal}
-                />
-              </Paper>
-            ) : (
-              <Paper withBorder style={{ borderWidth: 2 }} p="md" h="100%">
-                <Center h="100%">
-                  <Stack align="center" gap="xs">
-                    <ThemeIcon size={80} radius="100%" variant="light" color="gray">
-                      <IconFolder size={40} />
-                    </ThemeIcon>
-                    <Text fw={600} size="lg">
-                      {selected.name}
-                    </Text>
-                    <Text c="dimmed" size="sm">
-                      {(selected as Directory).children.length === 1
-                        ? "1 item"
-                        : `${(selected as Directory).children.length} items`}
-                    </Text>
-                  </Stack>
-                </Center>
-              </Paper>
-            )}
-          </>
-        ) : (
-          <Paper withBorder style={{ borderWidth: 2 }} p="md" h="100%">
-            <Center h="100%">
-              <Stack align="center" gap="sm">
-                <ThemeIcon size={80} radius="100%" variant="light" color="gray">
-                  <IconFileDescription size={40} />
-                </ThemeIcon>
-                <Text c="dimmed" fw={500} size="lg">
-                  {t("Files.NoSelection")}
-                </Text>
-              </Stack>
-            </Center>
-          </Paper>
-        )}
+        {list}
+        {detail}
       </Group>
     </Stack>
   );

@@ -169,6 +169,8 @@ export const fontSizeAtom = atomWithStorage(
 
 export const moveNotationTypeAtom = atomWithStorage<"letters" | "symbols">("letters", "symbols");
 export const moveMethodAtom = atomWithStorage<"drag" | "select" | "both">("move-method", "both");
+export const hapticsEnabledAtom = atomWithStorage<boolean>("haptics", false);
+export const flipBoardOnDoubleTapAtom = atomWithStorage<boolean>("flip-board-double-tap", false);
 export const spellCheckAtom = atomWithStorage<boolean>("spell-check", false);
 export const moveInputAtom = atomWithStorage<boolean>("move-input", false);
 export const showDestsAtom = atomWithStorage<boolean>("show-dests", true);

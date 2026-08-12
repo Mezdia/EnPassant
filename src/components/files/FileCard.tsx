@@ -1,5 +1,5 @@
 import { ActionIcon, Badge, Box, Divider, Group, Stack, Text, Tooltip } from "@mantine/core";
-import { IconEdit, IconZoomCheck } from "@tabler/icons-react";
+import { IconEdit, IconTrash, IconZoomCheck } from "@tabler/icons-react";
 import { useNavigate } from "@tanstack/react-router";
 import { useAtom, useSetAtom } from "jotai";
 import { useEffect, useState } from "react";
@@ -18,11 +18,14 @@ function FileCard({
   games,
   setGames,
   toggleEditModal,
+  onDelete,
 }: {
   selected: FileMetadata;
   games: Map<number, string>;
   setGames: React.Dispatch<React.SetStateAction<Map<number, string>>>;
   toggleEditModal: () => void;
+  /** Touch has no right-click context menu, so deletion needs an explicit button. */
+  onDelete: (entry: FileMetadata) => void;
 }) {
   const { t } = useTranslation();
 
@@ -74,6 +77,11 @@ function FileCard({
           <Tooltip label={t("Files.EditMetadata")}>
             <ActionIcon size="sm" onClick={() => toggleEditModal()}>
               <IconEdit />
+            </ActionIcon>
+          </Tooltip>
+          <Tooltip label={t("Files.Delete.Title")}>
+            <ActionIcon size="sm" color="red" onClick={() => onDelete(selected)}>
+              <IconTrash />
             </ActionIcon>
           </Tooltip>
         </Group>

@@ -1,7 +1,9 @@
 import {
   ActionIcon,
+  Box,
   Card,
   Group,
+  Paper,
   ScrollArea,
   Select,
   Stack,
@@ -10,13 +12,17 @@ import {
   Tabs,
   Text,
   TextInput,
+  Title,
   Tooltip,
 } from "@mantine/core";
 import { useHotkeys } from "@mantine/hooks";
 import {
+  IconArrowLeft,
   IconBook,
   IconBrush,
   IconChess,
+  IconChevronRight,
+  IconDeviceMobile,
   IconFlag,
   IconFolder,
   IconKeyboard,
@@ -38,7 +44,10 @@ import {
   autoSaveAtom,
   enableBoardScrollAtom,
   eraseDrawablesOnClickAtom,
+  flipBoardAfterMoveAtom,
+  flipBoardOnDoubleTapAtom,
   forcedEnPassantAtom,
+  hapticsEnabledAtom,
   materialDisplayAtom,
   moveHighlightAtom,
   moveInputAtom,
@@ -47,7 +56,6 @@ import {
   nativeBarAtom,
   practiceAutoDifficultyAtom,
   previewBoardOnHoverAtom,
-  flipBoardAfterMoveAtom,
   showArrowsAtom,
   showConsecutiveArrowsAtom,
   showCoordinatesAtom,
@@ -62,6 +70,8 @@ import {
   telemetryEnabledAtom,
 } from "@/state/atoms";
 import { keyMapAtom } from "@/state/keybinds";
+import { isAndroid, isMobile } from "@/utils/platform";
+import { useIsMobilePortrait } from "@/utils/useIsLandscape";
 import FileInput from "../common/FileInput";
 import BoardSelect from "./BoardSelect";
 import ColorControl from "./ColorControl";
@@ -78,6 +88,7 @@ import VolumeSlider from "./VolumeSlider";
 type SettingCategory =
   | "board"
   | "inputs"
+  | "mobile"
   | "anarchy"
   | "appearance"
   | "sound"
@@ -92,6 +103,8 @@ interface SettingItem {
   title: string;
   description: string;
   keywords?: string[];
+  /** Shown only on mobile; hidden on desktop. */
+  mobileOnly?: boolean;
   render: () => React.ReactNode;
 }
 
@@ -154,6 +167,8 @@ export default function Page() {
   const { t, i18n } = useTranslation();
   const [searchQuery, setSearchQuery] = useState("");
   const searchInputRef = useRef<HTMLInputElement>(null);
+  // Portrait drill-in: the category the user tapped, null when showing the list.
+  const [drillCategory, setDrillCategory] = useState<SettingCategory | null>(null);
 
   const [keyMap, setKeyMap] = useAtom(keyMapAtom);
   const [isNative, setIsNative] = useAtom(nativeBarAtom);
@@ -370,6 +385,45 @@ export default function Page() {
         description: t("Settings.Inputs.SpellCheck.Desc"),
         keywords: ["spell", "check", "grammar"],
         render: () => <SettingsSwitch atom={spellCheckAtom} />,
+      },
+      // Mobile input settings (Android-only; no pointer/keyboard on a phone)
+      {
+        id: "haptics",
+        category: "mobile",
+        mobileOnly: true,
+        title: t("Settings.Mobile.Haptics"),
+        description: t("Settings.Mobile.Haptics.Desc"),
+        keywords: ["haptics", "vibrate", "feedback"],
+        render: () => <SettingsSwitch atom={hapticsEnabledAtom} />,
+      },
+      {
+        id: "tap-to-move",
+        category: "mobile",
+        mobileOnly: true,
+        title: t("Settings.Mobile.TapToMove"),
+        description: t("Settings.Mobile.TapToMove.Desc"),
+        keywords: ["tap", "click", "drag", "move"],
+        render: () => (
+          <Select
+            allowDeselect={false}
+            data={[
+              { label: t("Settings.MoveMethod.Drag"), value: "drag" },
+              { label: t("Settings.MoveMethod.Click"), value: "select" },
+              { label: t("Settings.MoveMethod.Both"), value: "both" },
+            ]}
+            value={moveMethod}
+            onChange={(val) => setMoveMethod(val as "drag" | "select" | "both")}
+          />
+        ),
+      },
+      {
+        id: "flip-board-double-tap",
+        category: "mobile",
+        mobileOnly: true,
+        title: t("Settings.Mobile.FlipBoardDoubleTap"),
+        description: t("Settings.Mobile.FlipBoardDoubleTap.Desc"),
+        keywords: ["flip", "board", "double", "tap", "gesture"],
+        render: () => <SettingsSwitch atom={flipBoardOnDoubleTapAtom} />,
       },
       // Anarchy settings
       {
@@ -668,6 +722,11 @@ export default function Page() {
         description: t("Settings.Inputs.Desc"),
         icon: <IconMouse size="1rem" />,
       },
+      mobile: {
+        title: t("Settings.Mobile"),
+        description: t("Settings.Mobile.Desc"),
+        icon: <IconDeviceMobile size="1rem" />,
+      },
       anarchy: {
         title: t("Settings.Anarchy"),
         description: t("Settings.Anarchy.Desc"),
@@ -775,35 +834,181 @@ export default function Page() {
     ));
   };
 
+  const searchBox = (
+    <TextInput
+      ref={searchInputRef}
+      placeholder={t("Common.Search")}
+      leftSection={<IconSearch size="1rem" />}
+      value={searchQuery}
+      onChange={(e) => setSearchQuery(e.currentTarget.value)}
+      onKeyDown={(e) => {
+        if (e.key === "f" && (e.metaKey || e.ctrlKey)) {
+          e.preventDefault();
+        }
+        if (e.key === "Escape") {
+          setSearchQuery("");
+          searchInputRef.current?.blur();
+        }
+      }}
+      style={{ flex: 1, maxWidth: 400 }}
+    />
+  );
+
+  const searchResults = filteredSettings ? (
+    <ScrollArea flex={1} px="md">
+      {renderSearchResults()}
+      <Text size="xs" c="dimmed" ta="right" py="md">
+        En Croissant v{version}
+      </Text>
+    </ScrollArea>
+  ) : null;
+
+  const keybindsPanel = (
+    <Tabs.Panel value="keybinds">
+      <Group>
+        <Text size="lg" fw={500} className={classes.title}>
+          {t("Settings.Keybinds")}
+        </Text>
+        <Tooltip label={t("Common.Reset")}>
+          <ActionIcon onClick={() => setKeyMap(RESET)}>
+            <IconReload size="1rem" />
+          </ActionIcon>
+        </Tooltip>
+      </Group>
+      <Text size="xs" c="dimmed" mt={3} mb="lg">
+        {t("Settings.Keybinds.Desc")}
+      </Text>
+      <Table>
+        <Table.Thead>
+          <Table.Tr>
+            <Table.Th>{t("Common.Description")}</Table.Th>
+            <Table.Th>{t("Settings.Key")}</Table.Th>
+          </Table.Tr>
+        </Table.Thead>
+        <Table.Tbody>
+          {Object.entries(keyMap).map(([action, keybind]) => (
+            <Table.Tr key={keybind.name}>
+              <Table.Td>{keybind.name}</Table.Td>
+              <Table.Td>
+                <KeybindInput action={action} keybind={keybind} />
+              </Table.Td>
+            </Table.Tr>
+          ))}
+        </Table.Tbody>
+      </Table>
+    </Tabs.Panel>
+  );
+
+  // Portrait (Android phone held upright) has no room for a category rail, so
+  // the categories become a tappable list that drills into a category's own
+  // screen behind a back button. Landscape and desktop keep the vertical rail.
+  const mobilePortrait = useIsMobilePortrait();
+  const isMobilePlatform = isMobile();
+
+  // Categories in display order; keybinds and directories are desktop-only
+  // (no keyboard / no free-form paths on Android), mobile is mobile-only.
+  const visibleCategories: SettingCategory[] = [
+    "board",
+    "inputs",
+    ...(isMobilePlatform ? (["mobile"] as SettingCategory[]) : []),
+    "anarchy",
+    "appearance",
+    "sound",
+    ...(isAndroid() ? [] : (["keybinds", "directories"] as SettingCategory[])),
+    "repertoire",
+    "privacy",
+  ];
+
+  const renderDrillPanel = (category: SettingCategory) => (
+    <Stack h="100%" gap={0} style={{ overflow: "hidden" }}>
+      <Group gap="xs" pt="sm" pb="sm" px="xs" wrap="nowrap">
+        <ActionIcon
+          variant="default"
+          onClick={() => setDrillCategory(null)}
+          aria-label={t("Common.Back")}
+        >
+          <IconArrowLeft size="1rem" />
+        </ActionIcon>
+        <Text fw="bold" size="md">
+          {categoryInfo[category].title}
+        </Text>
+      </Group>
+      <ScrollArea flex={1} px="md" pb="md">
+        <Card withBorder p="lg" className={classes.card} w="100%">
+          <Text size="lg" fw={500} className={classes.title}>
+            {categoryInfo[category].title}
+          </Text>
+          <Text size="xs" c="dimmed" mt={3} mb="lg">
+            {categoryInfo[category].description}
+          </Text>
+          {renderCategorySettings(category)}
+        </Card>
+        <Text size="xs" c="dimmed" ta="right" pt="md">
+          En Croissant v{version}
+        </Text>
+      </ScrollArea>
+    </Stack>
+  );
+
+  const renderCategoryList = () => (
+    <ScrollArea flex={1} px="md" pb="md">
+      <Stack gap="xs">
+        {visibleCategories.map((category) => (
+          <Paper
+            key={category}
+            withBorder
+            p="sm"
+            radius="md"
+            style={{ cursor: "pointer" }}
+            onClick={() => setDrillCategory(category)}
+          >
+            <Group justify="space-between" wrap="nowrap">
+              <Group gap="sm" wrap="nowrap">
+                {categoryInfo[category].icon}
+                <Stack gap={0}>
+                  <Text size="sm" fw={500}>
+                    {categoryInfo[category].title}
+                  </Text>
+                  <Text size="xs" c="dimmed">
+                    {categoryInfo[category].description}
+                  </Text>
+                </Stack>
+              </Group>
+              <IconChevronRight size="1rem" color="dimmed" />
+            </Group>
+          </Paper>
+        ))}
+      </Stack>
+      <Text size="xs" c="dimmed" ta="right" py="md">
+        En Croissant v{version}
+      </Text>
+    </ScrollArea>
+  );
+
+  if (mobilePortrait) {
+    return (
+      <Stack h="100%" gap="xs" px="sm" pb="sm" style={{ overflow: "hidden" }}>
+        {drillCategory ? (
+          renderDrillPanel(drillCategory)
+        ) : (
+          <>
+            <Group pt="sm" gap="xs">
+              <Title order={3}>{t("Settings.Title")}</Title>
+              <Box style={{ flex: 1 }}>{searchBox}</Box>
+            </Group>
+            {searchResults ?? renderCategoryList()}
+          </>
+        )}
+      </Stack>
+    );
+  }
+
   return (
     <Stack h="100%" gap={0}>
       <Group px="md" pt="md" pb="sm">
-        <TextInput
-          ref={searchInputRef}
-          placeholder={t("Common.Search")}
-          leftSection={<IconSearch size="1rem" />}
-          value={searchQuery}
-          onChange={(e) => setSearchQuery(e.currentTarget.value)}
-          onKeyDown={(e) => {
-            if (e.key === "f" && (e.metaKey || e.ctrlKey)) {
-              e.preventDefault();
-            }
-            if (e.key === "Escape") {
-              setSearchQuery("");
-              searchInputRef.current?.blur();
-            }
-          }}
-          style={{ flex: 1, maxWidth: 400 }}
-        />
+        {searchBox}
       </Group>
-      {filteredSettings ? (
-        <ScrollArea flex={1} px="md">
-          {renderSearchResults()}
-          <Text size="xs" c="dimmed" ta="right" py="md">
-            En Croissant v{version}
-          </Text>
-        </ScrollArea>
-      ) : (
+      {searchResults ?? (
         <Tabs
           defaultValue="board"
           orientation="vertical"
@@ -822,6 +1027,11 @@ export default function Page() {
             <Tabs.Tab value="inputs" leftSection={<IconMouse size="1rem" />}>
               {t("Settings.Inputs")}
             </Tabs.Tab>
+            {isMobilePlatform && (
+              <Tabs.Tab value="mobile" leftSection={<IconDeviceMobile size="1rem" />}>
+                {t("Settings.Mobile")}
+              </Tabs.Tab>
+            )}
             <Tabs.Tab value="anarchy" leftSection={<IconFlag size="1rem" />}>
               {t("Settings.Anarchy")}
             </Tabs.Tab>
@@ -831,12 +1041,16 @@ export default function Page() {
             <Tabs.Tab value="sound" leftSection={<IconVolume size="1rem" />}>
               {t("Settings.Sound")}
             </Tabs.Tab>
-            <Tabs.Tab value="keybinds" leftSection={<IconKeyboard size="1rem" />}>
-              {t("Settings.Keybinds")}
-            </Tabs.Tab>
-            <Tabs.Tab value="directories" leftSection={<IconFolder size="1rem" />}>
-              {t("Settings.Directories")}
-            </Tabs.Tab>
+            {!isAndroid() && (
+              <Tabs.Tab value="keybinds" leftSection={<IconKeyboard size="1rem" />}>
+                {t("Settings.Keybinds")}
+              </Tabs.Tab>
+            )}
+            {!isAndroid() && (
+              <Tabs.Tab value="directories" leftSection={<IconFolder size="1rem" />}>
+                {t("Settings.Directories")}
+              </Tabs.Tab>
+            )}
             <Tabs.Tab value="repertoire" leftSection={<IconBook size="1rem" />}>
               {t("Settings.Repertoire")}
             </Tabs.Tab>
@@ -866,6 +1080,18 @@ export default function Page() {
                   </Text>
                   {renderCategorySettings("inputs")}
                 </Tabs.Panel>
+
+                {isMobilePlatform && (
+                  <Tabs.Panel value="mobile">
+                    <Text size="lg" fw={500} className={classes.title}>
+                      {t("Settings.Mobile")}
+                    </Text>
+                    <Text size="xs" c="dimmed" mt={3} mb="lg">
+                      {t("Settings.Mobile.Desc")}
+                    </Text>
+                    {renderCategorySettings("mobile")}
+                  </Tabs.Panel>
+                )}
 
                 <Tabs.Panel value="anarchy">
                   <Text size="lg" fw={500} className={classes.title}>
@@ -897,51 +1123,19 @@ export default function Page() {
                   {renderCategorySettings("sound")}
                 </Tabs.Panel>
 
-                <Tabs.Panel value="keybinds">
-                  <Group>
-                    <Text size="lg" fw={500} className={classes.title}>
-                      {t("Settings.Keybinds")}
-                    </Text>
-                    <Tooltip label={t("Common.Reset")}>
-                      <ActionIcon onClick={() => setKeyMap(RESET)}>
-                        <IconReload size="1rem" />
-                      </ActionIcon>
-                    </Tooltip>
-                  </Group>
-                  <Text size="xs" c="dimmed" mt={3} mb="lg">
-                    {t("Settings.Keybinds.Desc")}
-                  </Text>
-                  <Table>
-                    <Table.Thead>
-                      <Table.Tr>
-                        <Table.Th>{t("Common.Description")}</Table.Th>
-                        <Table.Th>{t("Settings.Key")}</Table.Th>
-                      </Table.Tr>
-                    </Table.Thead>
-                    <Table.Tbody>
-                      {Object.entries(keyMap).map(([action, keybind]) => {
-                        return (
-                          <Table.Tr key={keybind.name}>
-                            <Table.Td>{keybind.name}</Table.Td>
-                            <Table.Td>
-                              <KeybindInput action={action} keybind={keybind} />
-                            </Table.Td>
-                          </Table.Tr>
-                        );
-                      })}
-                    </Table.Tbody>
-                  </Table>
-                </Tabs.Panel>
+                {!isAndroid() && keybindsPanel}
 
-                <Tabs.Panel value="directories">
-                  <Text size="lg" fw={500} className={classes.title}>
-                    {t("Settings.Directories")}
-                  </Text>
-                  <Text size="xs" c="dimmed" mt={3} mb="lg">
-                    {t("Settings.Directories.Desc")}
-                  </Text>
-                  {renderCategorySettings("directories")}
-                </Tabs.Panel>
+                {!isAndroid() && (
+                  <Tabs.Panel value="directories">
+                    <Text size="lg" fw={500} className={classes.title}>
+                      {t("Settings.Directories")}
+                    </Text>
+                    <Text size="xs" c="dimmed" mt={3} mb="lg">
+                      {t("Settings.Directories.Desc")}
+                    </Text>
+                    {renderCategorySettings("directories")}
+                  </Tabs.Panel>
+                )}
 
                 <Tabs.Panel value="repertoire">
                   <Text size="lg" fw={500} className={classes.title}>
