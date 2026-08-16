@@ -48,7 +48,7 @@
     "frontendDist": "../dist",
     "devUrl": "http://localhost:1420"
   },
-  "productName": "En-passant",
+  "productName": "EnPassant",
   "mainBinaryName": "en-passant",
   "identifier": "ir.enpassant.app",
   "plugins": {
@@ -82,7 +82,7 @@
     "withGlobalTauri": false,
     "windows": [
       {
-        "title": "En-passant",
+        "title": "EnPassant",
         "visible": false,
         "decorations": true
       }

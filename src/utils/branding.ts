@@ -2,7 +2,7 @@
  * Single source of truth for user-visible product identity, so a rename is a
  * one-file change instead of a grep across the UI.
  */
-export const APP_NAME = "En-passant";
+export const APP_NAME = "EnPassant";
 
 /**
  * Compact, token-safe spelling of {@link APP_NAME} for places that cannot take
@@ -26,7 +26,7 @@ export const APP_WEBSITE = "https://www.enpassant.ir";
 export const APP_DOCS_URL = "https://enpassant.ir/docs/";
 
 /** Source repository, linked from the About dialog and sent as `User-Agent`. */
-export const APP_REPOSITORY = "https://github.com/Mezdia/En-passant";
+export const APP_REPOSITORY = "https://github.com/Mezdia/EnPassant";
 
 /** Pre-filled bug report, linked from the crash screen. */
 export const APP_ISSUES_URL = `${APP_REPOSITORY}/issues/new?assignees=&labels=bug&projects=&template=bug.yml`;

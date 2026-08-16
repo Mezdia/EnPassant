@@ -1,10 +1,10 @@
 <br />
 <div align="center">
-  <a href="https://github.com/Mezdia/En-passant">
-    <img width="115" height="115" src="https://github.com/Mezdia/En-passant/blob/master/src-tauri/icons/icon.png" alt="Logo">
+  <a href="https://github.com/Mezdia/EnPassant">
+    <img width="115" height="115" src="https://github.com/Mezdia/EnPassant/blob/master/src-tauri/icons/icon.png" alt="Logo">
   </a>
 
-<h3 align="center">En-passant</h3>
+<h3 align="center">EnPassant</h3>
 
   <p align="center">
     The Ultimate Chess Toolkit
@@ -18,7 +18,7 @@
   </p>
 </div>
 
-En-passant is an open-source, cross-platform chess GUI that aims to be powerful, customizable and easy to use.
+EnPassant is an open-source, cross-platform chess GUI that aims to be powerful, customizable and easy to use.
 
 ## Features
 
@@ -32,11 +32,11 @@ En-passant is an open-source, cross-platform chess GUI that aims to be powerful,
 
 Refer to the [Tauri documentation](https://tauri.app/start/prerequisites/) for the requirements on your platform.
 
-En-passant uses pnpm as the package manager for dependencies. Refer to the [pnpm install instructions](https://pnpm.io/installation) for how to install it on your platform.
+EnPassant uses pnpm as the package manager for dependencies. Refer to the [pnpm install instructions](https://pnpm.io/installation) for how to install it on your platform.
 
 ```bash
-git clone https://github.com/Mezdia/En-passant
-cd En-passant
+git clone https://github.com/Mezdia/EnPassant
+cd EnPassant
 pnpm install
 pnpm build
 ```

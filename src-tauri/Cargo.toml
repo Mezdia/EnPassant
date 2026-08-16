@@ -4,7 +4,7 @@ version = "0.15.0"
 description = "A Modern Chess Database"
 authors = ["Mezdia <mehdieisa51@gmail.com>"]
 license = "GPL-3.0-only"
-repository = "https://github.com/Mezdia/En-passant"
+repository = "https://github.com/Mezdia/EnPassant"
 edition = "2021"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html

@@ -312,7 +312,7 @@
     "Engines.Empty.AddHint": "",
     "Engines.Empty.NoInstalled": "",
     "Engines.FileMissing": "",
-    "Engines.Remove.Message": "您確定要從 En-passant 中移除此引擎嗎？",
+    "Engines.Remove.Message": "您確定要從 EnPassant 中移除此引擎嗎？",
     "Engines.Remove.Title": "移除引擎",
     "Engines.Selection.None": "",
     "Engines.Settings.AdvancedSettings": "進階設定",
