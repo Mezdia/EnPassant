@@ -198,15 +198,11 @@ jobs:
           if gh release view "$tag" --json tagName >/dev/null 2>&1; then
             echo "Pre-release $tag already exists"
           else
+            notes=$'Preview of the Android app.\n\n- APK: installable on Android 7+ (minSdk 24)\n- AAB: upload to the Play Console\n\nDesktop builds for Windows, macOS and Linux live in the stable release.'
             gh release create "$tag" \
               --prerelease \
               --title "EnPassant Android v${version} (preview)" \
-              --notes "Preview of the Android app.
-
-- APK: installable on Android 7+ (minSdk 24)
-- AAB: upload to the Play Console
-
-Desktop builds for Windows, macOS and Linux live in the stable release."
+              --notes "$notes"
           fi
 
       - name: Attach the Android artifacts to the pre-release
