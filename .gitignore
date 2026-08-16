@@ -28,6 +28,7 @@ tsconfig.tsbuildinfo
 *.sw?
 
 src-tauri/gen/
+src-tauri/.tauri/
 
 # Signed Android artifacts staged by .github/scripts/sign-android.sh
 android-artifacts/

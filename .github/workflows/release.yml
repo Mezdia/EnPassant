@@ -6,7 +6,10 @@ on:
   workflow_dispatch:
 
 jobs:
+  # Desktop bundles for Windows, macOS and Linux. Skipped for `*-android`
+  # tags, where only the Android preview job should run.
   release:
+    if: ${{ !endsWith(github.ref_name, '-android') }}
     permissions:
       contents: write
     strategy:
@@ -78,15 +81,15 @@ jobs:
           tagName: ${{ github.ref_name }}
           releaseName: "v__VERSION__"
           releaseBody: "See the assets to download and install this version."
-          releaseDraft: true
+          releaseDraft: false
           prerelease: false
           args: ${{ matrix.args }}
 
   # Android is built separately because `tauri-action` only drives the desktop
-  # bundler. It runs after `release` so the draft release already exists and the
-  # APK/AAB can be attached to it.
+  # bundler. The APK/AAB are attached to a dedicated pre-release tagged
+  # `<release tag>-android` (e.g. `v0.15.0-android`) so the desktop release
+  # stays stable while the mobile build ships as a preview.
   android:
-    needs: release
     permissions:
       contents: write
     runs-on: ubuntu-24.04
@@ -172,8 +175,42 @@ jobs:
           path: android-artifacts/*
           if-no-files-found: error
 
-      - name: Attach the Android artifacts to the draft release
+      # On a plain `vX.Y.Z` tag the Android preview is published under
+      # `vX.Y.Z-android`; on a `vX.Y.Z-android` tag it (re)attaches to that
+      # same pre-release.
+      - name: Resolve the Android release tag
+        id: android-release
+        shell: bash
+        run: |
+          if [[ "${{ github.ref_name }}" == *-android ]]; then
+            echo "tag=${{ github.ref_name }}"
+          else
+            echo "tag=${{ github.ref_name }}-android"
+          fi >> "$GITHUB_OUTPUT"
+
+      - name: Create the Android pre-release (if missing)
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        shell: bash
+        run: |
+          tag="${{ steps.android-release.outputs.tag }}"
+          version="$(jq -r .version package.json)"
+          if gh release view "$tag" --json tagName >/dev/null 2>&1; then
+            echo "Pre-release $tag already exists"
+          else
+            gh release create "$tag" \
+              --prerelease \
+              --title "EnPassant Android v${version} (preview)" \
+              --notes "Preview of the Android app.
+
+- APK: installable on Android 7+ (minSdk 24)
+- AAB: upload to the Play Console
+
+Desktop builds for Windows, macOS and Linux live in the stable release."
+          fi
+
+      - name: Attach the Android artifacts to the pre-release
         if: startsWith(github.ref, 'refs/tags/')
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: gh release upload "${{ github.ref_name }}" android-artifacts/* --clobber
+        run: gh release upload "${{ steps.android-release.outputs.tag }}" android-artifacts/* --clobber
