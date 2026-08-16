@@ -23,7 +23,7 @@ tauri = { version = "2.10.2", features = ["protocol-asset"] }
 zip = "2.1.6"
 tokio = { version = "1.33", features = ["full"] }
 futures-util = "0.3.24"
-reqwest = { version = "0.12.5", features = ["stream", "blocking", "json"] }
+reqwest = { version = "0.12.5", default-features = false, features = ["stream", "blocking", "json", "http2", "charset", "rustls-tls"] }
 shakmaty = "0.27.1"
 pgn-reader = "0.26.0"
 csv = "1.1.6"
