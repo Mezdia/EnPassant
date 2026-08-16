@@ -6,6 +6,8 @@
   "scripts": {
     "start-vite": "vite",
     "build-vite": "tsgo --noEmit && vite build",
+    "build:demo": "tsgo --noEmit && vite build --config vite.config.demo.ts",
+    "dev:demo": "vite --config vite.config.demo.ts",
     "build": "tauri build --no-bundle",
     "dev": "tauri dev",
     "tauri": "tauri",
@@ -100,6 +102,7 @@
     "babel-plugin-react-compiler": "^1.0.0",
     "i18next-cli": "^1.42.12",
     "jsdom": "^28.1.0",
+    "msw": "^2.15.0",
     "oxfmt": "^0.40.0",
     "oxlint": "^1.55.0",
     "oxlint-tsgolint": "^0.16.0",

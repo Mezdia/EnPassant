@@ -74,8 +74,21 @@ export type Dirs = {
   puzzlesDir: string;
 };
 
+// The app is normally served at the root (desktop, /), but the embeddable
+// demo build can be served from any sub-path (e.g. /demo/ on the website or
+// a CDN mirror). Derive the router basepath from the page URL so routes keep
+// matching no matter where the bundle is mounted.
+const pagePathname = window.location.pathname;
+const routerBasepath =
+  pagePathname === "/"
+    ? "/"
+    : pagePathname.endsWith("/")
+      ? pagePathname
+      : `${pagePathname.slice(0, pagePathname.lastIndexOf("/") + 1)}`;
+
 const router = createRouter({
   routeTree,
+  basepath: routerBasepath,
   defaultErrorComponent: ErrorComponent,
   context: {
     loadDirs: async () => {

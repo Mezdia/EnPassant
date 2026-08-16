@@ -2,6 +2,7 @@
   "$schema": "./node_modules/oxfmt/configuration_schema.json",
   "ignorePatterns": [
     "public/**/*",
+    "demo/mockServiceWorker.js",
     "src-tauri/**/*",
     ".github/**/*",
     "src/bindings/generated.ts",
