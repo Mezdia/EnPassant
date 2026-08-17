@@ -62,7 +62,7 @@
       ]
     },
     "updater": {
-      "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IEYyNUIyQTMxODBDOTkzMzYKUldRMms4bUFNU3BiOGdUZ25PMHljYjJldWNpWXJ6TVF2WlgxWnEvaEVudm9CU3lFWmNweXFmcHUK",
+      "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IDdGMkY4NUE3Mzk4MTg0RUQKUldUdGhJRTVwNFV2ZjJnTnVmeHZhZ1R0RVNENmNFUFgyTmJCQmVXTVdiWmh0cXhxb3lCbGltajYK",
       "endpoints": [
         "https://www.enpassant.ir/updates"
       ]
