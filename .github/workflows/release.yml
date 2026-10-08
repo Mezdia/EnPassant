@@ -142,6 +142,21 @@ jobs:
       - name: Install app dependencies
         run: pnpm install --frozen-lockfile
 
+      # Android is the only target that reads its version out of
+      # tauri.conf.json: when the key is absent Tauri writes no tauri.properties
+      # and Gradle silently ships versionCode 1 / versionName 1.0, which is how
+      # v0.15.0 published an APK that reported itself as 1.0.
+      - name: Check the version is consistent
+        run: |
+          npm_version="$(jq -r .version package.json)"
+          cargo_version="$(awk -F'"' '/^version = / { print $2; exit }' src-tauri/Cargo.toml)"
+          tauri_version="$(jq -r .version src-tauri/tauri.conf.json)"
+          if [ "$npm_version" != "$cargo_version" ] || [ "$npm_version" != "$tauri_version" ]; then
+            echo "::error::Version mismatch: package.json=$npm_version, Cargo.toml=$cargo_version, tauri.conf.json=$tauri_version. Android needs tauri.conf.json to match or it publishes versionCode 1."
+            exit 1
+          fi
+          echo "Version $npm_version agrees across all three manifests"
+
       # Gradle produces an unsigned release APK without complaint and the
       # devices reject it at install time, so check the keystore before paying
       # for a full cross-compile.
