@@ -43,9 +43,21 @@ flavour_of() {
     printf '%s' "$flavour"
 }
 
+# Gradle names each flavour after its ABI family; publish the ABI string people
+# actually match their phone against.
+abi_of() {
+    case "$1" in
+        arm64) printf 'arm64-v8a' ;;
+        arm) printf 'armeabi-v7a' ;;
+        x86_64) printf 'x86_64' ;;
+        x86) printf 'x86' ;;
+        *) printf '%s' "$1" ;;
+    esac
+}
+
 if [ -d "$outputs/apk" ]; then
     while IFS= read -r -d '' apk; do
-        target="$staging/${app}_${version}_$(flavour_of "$apk").apk"
+        target="$staging/${app}_${version}_$(abi_of "$(flavour_of "$apk")").apk"
         if [ -n "$keystore" ]; then
             aligned="$tmp/$(basename "$apk" .apk)-aligned.apk"
             zipalign -p -f 4 "$apk" "$aligned"

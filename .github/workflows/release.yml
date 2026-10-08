@@ -186,6 +186,26 @@ jobs:
         env:
           CI: false
 
+      # The universal APK carries all four ABIs and weighs ~135MB, which is a lot
+      # to download on a phone. These two are the ones people actually need, so
+      # publish them next to the universal build. The Rust libs for every ABI are
+      # already compiled by the universal pass, so this only re-packages them.
+      - name: Build the arm64-v8a and armeabi-v7a APKs
+        run: pnpm tauri android build --apk --target aarch64 armv7
+        env:
+          CI: false
+
+      - name: Check every expected APK was produced
+        run: |
+          missing=0
+          for flavour in universal arm64 arm; do
+            if ! find src-tauri/gen/android/app/build/outputs/apk/$flavour -name '*.apk' -print -quit | grep -q .; then
+              echo "::error::No APK was produced for the '$flavour' flavour"
+              missing=1
+            fi
+          done
+          exit $missing
+
       # Gradle emits unsigned release artifacts; they are aligned and signed
       # here so no secret has to be written into the generated Gradle files.
       - name: Sign and stage the Android artifacts
@@ -227,7 +247,7 @@ jobs:
           if gh release view "$tag" --json tagName >/dev/null 2>&1; then
             echo "Pre-release $tag already exists"
           else
-            notes=$'Preview of the Android app.\n\n- APK: installable on Android 7+ (minSdk 24)\n- AAB: upload to the Play Console\n\nDesktop builds for Windows, macOS and Linux live in the stable release.'
+            notes=$'Preview of the Android app.\n\n- APK (arm64-v8a / armeabi-v7a): the small build for a modern phone or an older 32-bit one\n- APK (universal): every ABI, for when you do not know yours\n- AAB: upload to the Play Console\n\nAll require Android 7+ (minSdk 24). Desktop builds for Windows, macOS and Linux live in the stable release.'
             gh release create "$tag" \
               --prerelease \
               --title "EnPassant Android v${version} (preview)" \
