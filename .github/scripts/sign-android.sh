@@ -19,8 +19,16 @@ keystore=""
 if [ -n "${ANDROID_KEYSTORE_BASE64:-}" ]; then
     keystore="$tmp/android-keystore.jks"
     printf '%s' "$ANDROID_KEYSTORE_BASE64" | base64 -d >"$keystore"
+elif [ -n "${ANDROID_ALLOW_UNSIGNED:-}" ]; then
+    # Forks and dry runs still want artifacts to look at, so opting out is
+    # possible — but it has to be an explicit choice.
+    echo "::warning::ANDROID_KEYSTORE_BASE64 is not set; Android artifacts will be unsigned and CANNOT be installed."
 else
-    echo "::warning::ANDROID_KEYSTORE_BASE64 is not set; Android artifacts will be unsigned."
+    # An unsigned APK is accepted by Gradle and copied out happily, then every
+    # device rejects it with INSTALL_PARSE_FAILED_NO_CERTIFICATES. v0.15.0 shipped
+    # exactly that, so refuse rather than publish an uninstallable artifact.
+    echo "::error::ANDROID_KEYSTORE_BASE64 is not set, so the APK cannot be signed and would not install. Add the keystore secrets, or set ANDROID_ALLOW_UNSIGNED=1 to publish explicitly unsigned preview artifacts."
+    exit 1
 fi
 
 # Gradle lays the ABI flavour out as `apk/<flavour>/release/…` for APKs and
@@ -80,4 +88,13 @@ fi
 if [ -z "$(ls -A "$staging")" ]; then
     echo "::error::No Android artifacts were found under $outputs"
     exit 1
+fi
+
+# Last line of defence: a staged APK that cannot be verified must never reach a
+# release, because "it downloaded fine" and "it installed fine" are different claims.
+if [ -n "$keystore" ]; then
+    while IFS= read -r -d '' apk; do
+        apksigner verify --print-certs "$apk" > /dev/null
+        echo "Verified signature on $apk"
+    done < <(find "$staging" -name '*.apk' -print0)
 fi

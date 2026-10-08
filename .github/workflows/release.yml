@@ -142,6 +142,19 @@ jobs:
       - name: Install app dependencies
         run: pnpm install --frozen-lockfile
 
+      # Gradle produces an unsigned release APK without complaint and the
+      # devices reject it at install time, so check the keystore before paying
+      # for a full cross-compile.
+      - name: Check the Android signing secrets
+        env:
+          ANDROID_KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+          ANDROID_ALLOW_UNSIGNED: ${{ vars.ANDROID_ALLOW_UNSIGNED }}
+        run: |
+          if [ -z "$ANDROID_KEYSTORE_BASE64" ] && [ -z "$ANDROID_ALLOW_UNSIGNED" ]; then
+            echo "::error::ANDROID_KEYSTORE_BASE64 is not configured, so no installable APK can be produced. Create a keystore and add the ANDROID_KEYSTORE_* secrets, or set the ANDROID_ALLOW_UNSIGNED repository variable to publish explicitly unsigned previews."
+            exit 1
+          fi
+
       # `src-tauri/gen/` is not checked in, so the Gradle project is generated
       # from `tauri.conf.json` on every run.
       - name: Generate the Android project
@@ -166,6 +179,7 @@ jobs:
           ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
           ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
           ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+          ANDROID_ALLOW_UNSIGNED: ${{ vars.ANDROID_ALLOW_UNSIGNED }}
         run: bash .github/scripts/sign-android.sh
 
       - name: Upload the Android artifacts to the workflow run
