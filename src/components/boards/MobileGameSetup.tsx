@@ -1,4 +1,5 @@
 import {
+  ActionIcon,
   Alert,
   Button,
   Center,
@@ -14,20 +15,22 @@ import {
   Text,
   TextInput,
 } from "@mantine/core";
-import { IconCpu, IconInfoCircle, IconUser } from "@tabler/icons-react";
+import { IconArrowLeft, IconCpu, IconInfoCircle, IconUser } from "@tabler/icons-react";
 import type { TFunction } from "i18next";
 import { useAtom, useAtomValue } from "jotai";
-import { useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import GoModeInput from "@/components/common/GoModeInput";
 import TimeInput from "@/components/common/TimeInput";
 import EngineSettingsForm from "@/components/panels/analysis/EngineSettingsForm";
 import {
+  activeTabAtom,
   enginesAtom,
   gameInputColorAtom,
   gamePlayer1SettingsAtom,
   gamePlayer2SettingsAtom,
   gameSameTimeControlAtom,
+  tabsAtom,
 } from "@/state/atoms";
 import { isAndroid } from "@/utils/platform";
 import { EnginesSelect } from "./EnginesSelect";
@@ -57,13 +60,58 @@ export function MobileGameSetup({ onStart, disabled }: { onStart: () => void; di
   const next = () => setStep((s) => Math.min(STEP_COUNT - 1, s + 1));
   const back = () => setStep((s) => Math.max(0, s - 1));
 
+  const [tabs, setTabs] = useAtom(tabsAtom);
+  const [activeTab, setActiveTab] = useAtom(activeTabAtom);
+
+  /** Step 0 has no earlier step to return to, so leaving the wizard closes the
+   *  board tab it was opened in; BoardsPage recreates a home tab once none are
+   *  left. A tab still in setup never started an engine or a game, so unlike
+   *  BoardsPage.closeTab there is nothing to tear down here. */
+  const cancel = useCallback(() => {
+    const index = tabs.findIndex((tab) => tab.value === activeTab);
+    setActiveTab(
+      tabs.length > 1 ? tabs[index === tabs.length - 1 ? index - 1 : index + 1].value : null,
+    );
+    setTabs((prev) => prev.filter((tab) => tab.value !== activeTab));
+  }, [tabs, activeTab, setActiveTab, setTabs]);
+
+  const goBack = useCallback(() => {
+    if (step > 0) back();
+    else cancel();
+  }, [step, cancel]);
+
+  // Android's system back button reaches the WebView as window.history, and the
+  // wizard step is plain state, so claim a history entry while the wizard is on
+  // screen and walk it back down. Spreading history.state keeps the router's
+  // own entry state intact.
+  const stepRef = useRef(step);
+  stepRef.current = step;
+  const goBackRef = useRef(goBack);
+  goBackRef.current = goBack;
+  useEffect(() => {
+    history.pushState({ ...history.state, enpassantWizard: true }, "");
+    const onPop = () => {
+      goBackRef.current();
+      if (stepRef.current > 0) {
+        history.pushState({ ...history.state, enpassantWizard: true }, "");
+      }
+    };
+    window.addEventListener("popstate", onPop);
+    return () => window.removeEventListener("popstate", onPop);
+  }, []);
+
   return (
     <Stack h="100%" gap="xs">
-      <Stepper active={step} onStepClick={setStep} size="sm" iconSize={28}>
-        <Stepper.Step label={t("Board.Opponent.Players")} />
-        <Stepper.Step label={t("Board.Opponent.TimeSettings")} />
-        <Stepper.Step label={t("Board.Opponent.Confirm")} />
-      </Stepper>
+      <Group gap="xs" wrap="nowrap" align="center">
+        <ActionIcon variant="subtle" onClick={goBack} aria-label={t("Common.Back")}>
+          <IconArrowLeft size={18} />
+        </ActionIcon>
+        <Stepper style={{ flex: 1 }} active={step} onStepClick={setStep} size="sm" iconSize={28}>
+          <Stepper.Step label={t("Board.Opponent.Players")} />
+          <Stepper.Step label={t("Board.Opponent.TimeSettings")} />
+          <Stepper.Step label={t("Board.Opponent.Confirm")} />
+        </Stepper>
+      </Group>
 
       <ScrollArea style={{ flex: 1 }} offsetScrollbars>
         {step === 0 && (
@@ -161,8 +209,8 @@ export function MobileGameSetup({ onStart, disabled }: { onStart: () => void; di
       </ScrollArea>
 
       <Group grow>
-        <Button variant="default" onClick={back} disabled={step === 0}>
-          {t("Board.Opponent.Back")}
+        <Button variant="default" onClick={goBack}>
+          {step === 0 ? t("Common.Cancel") : t("Board.Opponent.Back")}
         </Button>
         <Button variant="default" onClick={next} disabled={step === STEP_COUNT - 1}>
           {t("Board.Opponent.Next")}

@@ -19,8 +19,11 @@ import classes from "./MobileBoardLayout.module.css";
  * right (mirrors the desktop layout).
  */
 
-// Sheet snap points as a fraction of the container height.
-const SNAP_POINTS: readonly number[] = [0.12, 0.5, 0.88];
+// Sheet snap points as a fraction of the container height. Full is 1 rather
+// than 0.88 because the Play setup wizard renders into the sheet and has to
+// cover the whole screen, and a dragged-open panel should be able to hide the
+// board completely.
+const SNAP_POINTS: readonly number[] = [0.12, 0.5, 1];
 const PEEK = SNAP_POINTS[0];
 const MAX_FRACTION = SNAP_POINTS[SNAP_POINTS.length - 1];
 
@@ -94,25 +97,13 @@ export function MobileBoardLayout() {
 
 function PortraitLayout() {
   const rootRef = useRef<HTMLDivElement>(null);
-  const [rootHeight, setRootHeight] = useState(0);
   const [fraction, setFraction] = useAtom(mobileSheetFractionAtom);
   const [dragging, setDragging] = useState(false);
   const dragState = useRef<{ startY: number; startFraction: number; moved: boolean } | null>(null);
-
-  // The board area has to reserve the peeking sheet's height. A percentage
-  // padding would resolve against the container's *width*, so measure instead.
-  useEffect(() => {
-    const root = rootRef.current;
-    if (!root) return;
-    const measure = () => setRootHeight(root.clientHeight);
-    measure();
-    window.addEventListener("resize", measure);
-    window.addEventListener("orientationchange", measure);
-    return () => {
-      window.removeEventListener("resize", measure);
-      window.removeEventListener("orientationchange", measure);
-    };
-  }, []);
+  // At the peek snap the sheet is only its drag handle: showing a slice of the
+  // panels there advertised content the user could not reach, and the handle
+  // is the only part of the sheet the drag actually owns.
+  const collapsed = fraction <= PEEK + Number.EPSILON;
 
   const onPointerDown = useCallback(
     (e: React.PointerEvent) => {
@@ -159,16 +150,17 @@ function PortraitLayout() {
 
   return (
     <div className={classes.root} ref={rootRef}>
-      <div
-        className={classes.portrait}
-        style={{ paddingBottom: rootHeight ? `${Math.round(PEEK * rootHeight)}px` : undefined }}
-      >
+      <div className={classes.portrait}>
         <div id="left" className={classes.portraitBoard} />
         <div id="bottomRight" className={classes.portraitNotation} />
       </div>
       <div
-        className={cx(classes.sheet, dragging ? classes.dragging : classes.sheetAnimated)}
-        style={{ height: `${fraction * 100}%` }}
+        className={cx(
+          classes.sheet,
+          collapsed && classes.sheetCollapsed,
+          dragging ? classes.dragging : classes.sheetAnimated,
+        )}
+        style={{ height: collapsed ? undefined : `${fraction * 100}%` }}
       >
         <div
           className={classes.handleZone}

@@ -53,6 +53,7 @@ import { ANNOTATION_INFO, isBasicAnnotation } from "@/utils/annotation";
 import { getVariationLine } from "@/utils/chess";
 import { chessopsError, forceEnPassant, positionFromFen } from "@/utils/chessops";
 import { getTabFile, getTabGameNumber } from "@/utils/tabs";
+import { useIsMobilePortrait } from "@/utils/useIsLandscape";
 import ShowMaterial from "../common/ShowMaterial";
 import { TreeStateContext } from "../common/TreeStateContext";
 import FideInfo from "../databases/FideInfo";
@@ -178,6 +179,11 @@ function Board({
   const currentTab = useAtomValue(currentTabAtom);
   const tabFile = getTabFile(currentTab);
   const [evalOpen, setEvalOpen] = useAtom(currentEvalOpenAtom);
+  // A portrait phone has no width to spare: the 25px eval column and its gap
+  // pushed the board about 17px right of centre and cost it 35px of size. The
+  // evaluation stays reachable there (DetachedEval under the board on Analysis,
+  // and the Analysis panel in the sheet), so only the strip is dropped.
+  const mobilePortrait = useIsMobilePortrait();
 
   const [deck, setDeck] = useAtom(
     deckAtomFamily({
@@ -458,28 +464,32 @@ function Board({
                   </Box>
                 </Box>
               )}
-            <Box
-              h="100%"
-              style={{
-                width: 25,
-              }}
-            >
-              {!evalOpen && (
-                <Center h="100%" w="100%">
-                  <ActionIcon
-                    size="1rem"
-                    onClick={() => setEvalOpen(true)}
-                    onContextMenu={(e) => {
-                      setEvalOpen(true);
-                      e.preventDefault();
-                    }}
-                  >
-                    <IconChevronRight />
-                  </ActionIcon>
-                </Center>
-              )}
-              {evalOpen && <EvalBar score={currentNode.score || null} orientation={orientation} />}
-            </Box>
+            {!mobilePortrait && (
+              <Box
+                h="100%"
+                style={{
+                  width: 25,
+                }}
+              >
+                {!evalOpen && (
+                  <Center h="100%" w="100%">
+                    <ActionIcon
+                      size="1rem"
+                      onClick={() => setEvalOpen(true)}
+                      onContextMenu={(e) => {
+                        setEvalOpen(true);
+                        e.preventDefault();
+                      }}
+                    >
+                      <IconChevronRight />
+                    </ActionIcon>
+                  </Center>
+                )}
+                {evalOpen && (
+                  <EvalBar score={currentNode.score || null} orientation={orientation} />
+                )}
+              </Box>
+            )}
             <Box
               style={
                 isBasicAnnotation(visualAnnotation)
