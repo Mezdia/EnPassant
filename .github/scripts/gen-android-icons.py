@@ -25,9 +25,11 @@ DENSITIES = {
     "xxxhdpi": (192, 432),
 }
 
-# Largest the pawn may grow, as a fraction of the 108dp canvas.  0.66 keeps it
-# inside the 66dp safe circle for every launcher mask shape.
-SAFE_RATIO = 0.66
+# Launchers mask the 108dp canvas down to its central 72dp, and the circle mask
+# is the tightest of them, so the pawn is scaled until its farthest opaque pixel
+# sits inside that circle: nothing is ever clipped, on any launcher shape.
+VIEWPORT = 72 / 108
+EDGE_SLACK = 0.005     # fraction of the canvas kept clear of the mask edge
 BLUE_MIN = 12          # B - max(R,G) at or above this reads as background
 GROW_PX = 13           # dilation that also swallows the blue glow around the pawn
 RING_INSET = 0.075     # the master art's own border ring, excluded from the board
@@ -168,16 +170,32 @@ def background_plate(art, mask):
     return out
 
 
-def place(foreground, canvas, ratio):
-    """Centre `foreground` on a transparent canvas, capped at `ratio` of it."""
-    side = canvas * ratio
-    src = foreground
-    if max(src.size) > side:
-        s = side / max(src.size)
-        src = src.resize(
-            (max(1, round(src.width * s)), max(1, round(src.height * s))),
-            Image.LANCZOS,
-        )
+def circle_fit(foreground, canvas):
+    """Scale that puts every opaque pixel inside the launcher's 72dp circle.
+
+    The crop is centred on the canvas, so distances measured from the crop's
+    own centre are exactly the distances from the canvas centre after pasting.
+    """
+    a = foreground.getchannel("A").load()
+    w, h = foreground.size
+    cx, cy = (w - 1) / 2, (h - 1) / 2
+    farthest = 0.0
+    for y in range(h):
+        for x in range(w):
+            if a[x, y] > 16:
+                d = ((x - cx) ** 2 + (y - cy) ** 2) ** 0.5
+                if d > farthest:
+                    farthest = d
+    target = canvas * (VIEWPORT / 2 - EDGE_SLACK)
+    return target / farthest
+
+
+def place(foreground, canvas, scale):
+    """Centre `foreground` on a transparent canvas at an exact pixel scale."""
+    src = foreground.resize(
+        (max(1, round(foreground.width * scale)), max(1, round(foreground.height * scale))),
+        Image.LANCZOS,
+    )
     out = Image.new("RGBA", (canvas, canvas), (0, 0, 0, 0))
     out.paste(src, ((canvas - src.width) // 2, (canvas - src.height) // 2), src)
     return out
@@ -234,10 +252,11 @@ def main():
         board.resize((canvas, canvas), Image.LANCZOS).save(
             os.path.join(d, "ic_launcher_background.png"), optimize=True
         )
-        place(pawn, canvas, SAFE_RATIO).save(
+        scale = circle_fit(pawn, canvas)
+        place(pawn, canvas, scale).save(
             os.path.join(d, "ic_launcher_foreground.png"), optimize=True
         )
-        place(silhouette, canvas, SAFE_RATIO).save(
+        place(silhouette, canvas, scale).save(
             os.path.join(d, "ic_launcher_monochrome.png"), optimize=True
         )
         legacy_base.resize((legacy, legacy), Image.LANCZOS).save(
