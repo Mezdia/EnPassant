@@ -1,0 +1,1 @@
+{"version":3,"file":"server.cjs","sources":["../../../src/isServer/server.ts"],"sourcesContent":["export const isServer = true\n"],"names":[],"mappings":";;AAAO,MAAM,WAAW;;"}

@@ -1,0 +1,1 @@
+{"version":3,"file":"development.cjs","sources":["../../../src/isServer/development.ts"],"sourcesContent":["// Development/test mode - returns undefined so fallback to router.isServer is used\nexport const isServer: boolean | undefined = undefined\n"],"names":[],"mappings":";;AACO,MAAM,WAAgC;;"}

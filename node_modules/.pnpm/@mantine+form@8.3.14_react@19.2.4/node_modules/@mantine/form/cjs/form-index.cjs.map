@@ -1,0 +1,1 @@
+{"version":3,"file":"form-index.cjs","sources":["../src/form-index.ts"],"sourcesContent":["export const FORM_INDEX = '__MANTINE_FORM_INDEX__';\n"],"names":[],"mappings":";;;AAAO,CAAA,CAAA,CAAA,CAAA,CAAA,CAAM,UAAA,CAAA,CAAA,CAAa,CAAA,CAAA,CAAA,CAAA,CAAA,CAAA,CAAA,CAAA,CAAA,CAAA,CAAA,CAAA,CAAA,CAAA,CAAA,CAAA,CAAA,CAAA,CAAA,CAAA,CAAA,CAAA,CAAA,CAAA,CAAA;;"}

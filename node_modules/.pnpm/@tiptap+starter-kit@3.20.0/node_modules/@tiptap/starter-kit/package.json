@@ -1,0 +1,68 @@
+{
+  "name": "@tiptap/starter-kit",
+  "description": "starter kit for tiptap",
+  "version": "3.20.0",
+  "homepage": "https://tiptap.dev",
+  "keywords": [
+    "tiptap",
+    "tiptap starter kit"
+  ],
+  "license": "MIT",
+  "funding": {
+    "type": "github",
+    "url": "https://github.com/sponsors/ueberdosis"
+  },
+  "exports": {
+    ".": {
+      "types": {
+        "import": "./dist/index.d.ts",
+        "require": "./dist/index.d.cts"
+      },
+      "import": "./dist/index.js",
+      "require": "./dist/index.cjs"
+    }
+  },
+  "main": "dist/index.cjs",
+  "module": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "type": "module",
+  "files": [
+    "src",
+    "dist"
+  ],
+  "dependencies": {
+    "@tiptap/core": "^3.20.0",
+    "@tiptap/extension-blockquote": "^3.20.0",
+    "@tiptap/extension-bold": "^3.20.0",
+    "@tiptap/extension-bullet-list": "^3.20.0",
+    "@tiptap/extension-code": "^3.20.0",
+    "@tiptap/extension-code-block": "^3.20.0",
+    "@tiptap/extension-document": "^3.20.0",
+    "@tiptap/extension-dropcursor": "^3.20.0",
+    "@tiptap/extension-gapcursor": "^3.20.0",
+    "@tiptap/extension-hard-break": "^3.20.0",
+    "@tiptap/extension-heading": "^3.20.0",
+    "@tiptap/extension-horizontal-rule": "^3.20.0",
+    "@tiptap/extension-italic": "^3.20.0",
+    "@tiptap/extension-link": "^3.20.0",
+    "@tiptap/extension-list": "^3.20.0",
+    "@tiptap/extension-list-item": "^3.20.0",
+    "@tiptap/extension-ordered-list": "^3.20.0",
+    "@tiptap/extension-paragraph": "^3.20.0",
+    "@tiptap/extension-text": "^3.20.0",
+    "@tiptap/extension-strike": "^3.20.0",
+    "@tiptap/extension-list-keymap": "^3.20.0",
+    "@tiptap/extensions": "^3.20.0",
+    "@tiptap/pm": "^3.20.0",
+    "@tiptap/extension-underline": "^3.20.0"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/ueberdosis/tiptap",
+    "directory": "packages/starter-kit"
+  },
+  "scripts": {
+    "build": "tsup",
+    "lint": "prettier ./src/ --check && eslint --cache --quiet --no-error-on-unmatched-pattern ./src/"
+  }
+}

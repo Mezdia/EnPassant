@@ -1,0 +1,14 @@
+/**
+ * @license @tabler/icons-react v3.36.1 - MIT
+ *
+ * This source code is licensed under the MIT license.
+ * See the LICENSE file in the root directory of this source tree.
+ */
+
+import createReactComponent from '../createReactComponent.mjs';
+
+const __iconNode = [["path", { "d": "M13.446 2.6l7.955 7.954a2.045 2.045 0 0 1 0 2.892l-7.955 7.955a2.045 2.045 0 0 1 -2.892 0l-7.955 -7.955a2.045 2.045 0 0 1 0 -2.892l7.955 -7.955a2.045 2.045 0 0 1 2.892 0", "key": "svg-0" }], ["path", { "d": "M12 8.5v7", "key": "svg-1" }], ["path", { "d": "M9 10l6 4", "key": "svg-2" }], ["path", { "d": "M9 14l6 -4", "key": "svg-3" }]];
+const IconSquareRotatedAsterisk = createReactComponent("outline", "square-rotated-asterisk", "SquareRotatedAsterisk", __iconNode);
+
+export { __iconNode, IconSquareRotatedAsterisk as default };
+//# sourceMappingURL=IconSquareRotatedAsterisk.mjs.map

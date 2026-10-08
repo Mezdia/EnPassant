@@ -1,0 +1,25 @@
+{
+    "name": "@types/dom-to-image",
+    "version": "2.6.7",
+    "description": "TypeScript definitions for dom-to-image",
+    "homepage": "https://github.com/DefinitelyTyped/DefinitelyTyped/tree/master/types/dom-to-image",
+    "license": "MIT",
+    "contributors": [
+        {
+            "name": "Jip Sterk",
+            "githubUsername": "JipSterk",
+            "url": "https://github.com/JipSterk"
+        }
+    ],
+    "main": "",
+    "types": "index.d.ts",
+    "repository": {
+        "type": "git",
+        "url": "https://github.com/DefinitelyTyped/DefinitelyTyped.git",
+        "directory": "types/dom-to-image"
+    },
+    "scripts": {},
+    "dependencies": {},
+    "typesPublisherContentHash": "f75136c1bbb37eab99ab8cd3e08f413382fb83b52616f32ab450e47dfcab55f6",
+    "typeScriptVersion": "4.5"
+}

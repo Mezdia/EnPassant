@@ -1,0 +1,27 @@
+{
+    "name": "@types/postcss-modules-local-by-default",
+    "version": "4.0.2",
+    "description": "TypeScript definitions for postcss-modules-local-by-default",
+    "homepage": "https://github.com/DefinitelyTyped/DefinitelyTyped/tree/master/types/postcss-modules-local-by-default",
+    "license": "MIT",
+    "contributors": [
+        {
+            "name": "Jeow Li Huan",
+            "githubUsername": "huan086",
+            "url": "https://github.com/huan086"
+        }
+    ],
+    "main": "",
+    "types": "index.d.ts",
+    "repository": {
+        "type": "git",
+        "url": "https://github.com/DefinitelyTyped/DefinitelyTyped.git",
+        "directory": "types/postcss-modules-local-by-default"
+    },
+    "scripts": {},
+    "dependencies": {
+        "postcss": "^8.0.0"
+    },
+    "typesPublisherContentHash": "a15db1d76ccc69c6ca90037acd0e1188352307a735ef283488cb41dda2d309ea",
+    "typeScriptVersion": "4.5"
+}
