@@ -5,15 +5,65 @@
   flex-shrink: 0;
 }
 
-.item {
-  flex: 1;
-  min-width: 0;
-  padding: 0.5rem 0.625rem;
+.list {
+  max-height: 70vh;
+  overflow-x: hidden;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+
+/* The highlighted box belongs to the row, not the label button, so the close
+   button sits inside it rather than outside the selection. */
+.row {
+  display: flex;
+  align-items: center;
   border-radius: var(--mantine-radius-sm);
 }
 
-.item:hover {
+.row:hover {
   background-color: var(--mantine-color-default-hover);
+}
+
+.item {
+  flex: 1 1 0;
+  min-width: 0;
+  padding: 0.5rem 0.625rem;
+}
+
+/* min-width:0 is what lets the label give up width instead of stretching the
+   row past the drawer and hiding the close button. */
+.itemRow {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  min-width: 0;
+  font-size: var(--mantine-font-size-sm);
+  line-height: var(--mantine-line-height-sm);
+}
+
+.marquee {
+  display: block;
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+}
+
+.marqueeRun {
+  display: inline-block;
+  animation-name: pan;
+  animation-timing-function: ease-in-out;
+  animation-iteration-count: infinite;
+  animation-direction: alternate;
+}
+
+@keyframes pan {
+  from {
+    transform: translateX(0);
+  }
+  to {
+    transform: translateX(calc(-1 * var(--marquee, 0px)));
+  }
 }
 
 .selected {

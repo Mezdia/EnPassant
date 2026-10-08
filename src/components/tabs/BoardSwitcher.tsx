@@ -1,15 +1,7 @@
-import {
-  ActionIcon,
-  Button,
-  Drawer,
-  Group,
-  ScrollArea,
-  Stack,
-  Text,
-  UnstyledButton,
-} from "@mantine/core";
+import { ActionIcon, Button, Drawer, Group, Stack, Text, UnstyledButton } from "@mantine/core";
 import { useDisclosure } from "@mantine/hooks";
 import {
+  IconArrowLeft,
   IconChess,
   IconDatabase,
   IconLayoutGrid,
@@ -19,10 +11,56 @@ import {
   IconZoomCheck,
 } from "@tabler/icons-react";
 import cx from "clsx";
+import { useEffect, useRef, useState, type CSSProperties } from "react";
 import { useTranslation } from "react-i18next";
 import type { Tab } from "@/utils/tabs";
 import { FileIcon } from "../files/FileIcon";
 import classes from "./BoardSwitcher.module.css";
+
+/**
+ * A single line of text that pans sideways when it does not fit, so a long
+ * board name stays fully readable without the row growing and pushing the
+ * close button out of the drawer.
+ */
+function MarqueeText({ children }: { children: React.ReactNode }) {
+  const outerRef = useRef<HTMLSpanElement>(null);
+  const innerRef = useRef<HTMLSpanElement>(null);
+  const [distance, setDistance] = useState(0);
+
+  useEffect(() => {
+    const outer = outerRef.current;
+    if (!outer) return;
+    // Measure the clipping box, not the inner span: while it is still inline it
+    // has no layout box of its own, so its scrollWidth reports no overflow and
+    // the pan would never start.
+    const measure = () => setDistance(Math.max(0, outer.scrollWidth - outer.clientWidth));
+    measure();
+    const observer = new ResizeObserver(measure);
+    observer.observe(outer);
+    return () => observer.disconnect();
+  }, [children]);
+
+  const overflowing = distance > 0;
+
+  return (
+    <span ref={outerRef} className={classes.marquee}>
+      <span
+        ref={innerRef}
+        className={overflowing ? classes.marqueeRun : undefined}
+        style={
+          overflowing
+            ? ({
+                "--marquee": `${distance}px`,
+                animationDuration: `${Math.max(4, distance / 22)}s`,
+              } as CSSProperties)
+            : undefined
+        }
+      >
+        {children}
+      </span>
+    </span>
+  );
+}
 
 function TabIcon({ tab }: { tab: Tab }) {
   if (tab.type === "puzzles") return <IconPuzzle size="1rem" />;
@@ -86,27 +124,37 @@ export function BoardSwitcher({
         position="left"
         size="80%"
         title={t("Tab.OpenBoards", { defaultValue: "Open boards" })}
+        // The drawer slides out leftwards when dismissed, so the affordance
+        // points the same way instead of using the generic cross. CloseButton
+        // takes the glyph through `icon` — `children` renders alongside the
+        // default cross rather than replacing it.
+        closeButtonProps={{ icon: <IconArrowLeft size="1rem" /> }}
       >
         <Stack gap="xs">
-          <ScrollArea.Autosize mah="70vh">
+          {/* A plain scroll box, not ScrollArea: Mantine gives the ScrollArea
+              content `min-width: fit-content`, so a long board name widened the
+              whole row and pushed the close button past the drawer's right
+              edge instead of letting the label shrink. */}
+          <div className={classes.list}>
             <Stack gap={4}>
               {tabs.map((tab) => (
-                <Group key={tab.value} gap={0} wrap="nowrap">
+                <div
+                  key={tab.value}
+                  className={cx(classes.row, {
+                    [classes.selected]: tab.value === activeTab,
+                  })}
+                >
                   <UnstyledButton
-                    className={cx(classes.item, {
-                      [classes.selected]: tab.value === activeTab,
-                    })}
+                    className={classes.item}
                     onClick={() => {
                       setActiveTab(tab.value);
                       close();
                     }}
                   >
-                    <Group gap={8} wrap="nowrap">
+                    <span className={classes.itemRow}>
                       <TabIcon tab={tab} />
-                      <Text size="sm" truncate>
-                        {t(tab.name, { defaultValue: tab.name })}
-                      </Text>
-                    </Group>
+                      <MarqueeText>{t(tab.name, { defaultValue: tab.name })}</MarqueeText>
+                    </span>
                   </UnstyledButton>
                   <ActionIcon
                     variant="subtle"
@@ -116,10 +164,10 @@ export function BoardSwitcher({
                   >
                     <IconX size="1rem" />
                   </ActionIcon>
-                </Group>
+                </div>
               ))}
             </Stack>
-          </ScrollArea.Autosize>
+          </div>
           <Button
             leftSection={<IconPlus size="1rem" />}
             variant="light"
