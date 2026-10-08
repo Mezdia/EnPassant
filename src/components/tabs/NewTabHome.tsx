@@ -22,6 +22,7 @@ import {
   tabFamily,
   tabsAtom,
 } from "@/state/atoms";
+import { isMobile } from "@/utils/platform";
 import type { Tab } from "@/utils/tabs";
 import { createTab } from "@/utils/tabs";
 import { unwrap } from "@/utils/unwrap";
@@ -247,7 +248,10 @@ export default function NewTabHome({ id }: { id: string }) {
         setActiveTab={setActiveTab}
       />
       <CreateRepertoireModal opened={openRepertoireModal} setOpened={setOpenRepertoireModal} />
-      <Stack gap="lg" pt="sm">
+      {/* The gap has to live in the scrolled content: Chrome leaves a scroll
+          container's own bottom padding out of scrollHeight, so padding on
+          AppShell.Main never clears the fixed tab bar. */}
+      <Stack gap="lg" pt="sm" pb={isMobile() ? "xl" : undefined}>
         <SimpleGrid cols={{ base: 1, sm: 2, lg: 5 }}>
           {cards.map((card) => (
             <Card shadow="sm" p="lg" radius="md" withBorder key={card.title}>

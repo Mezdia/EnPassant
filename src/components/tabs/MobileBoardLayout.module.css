@@ -25,8 +25,10 @@
   padding-bottom: 1.5rem;
 }
 
+/* The board takes the height it needs (its width is definite, so the square
+   plus the two player bars is definite too) and must not be squeezed. */
 .portraitBoard {
-  flex: 1 1 auto;
+  flex: 0 0 auto;
   min-height: 0;
   display: flex;
   align-items: flex-start;
@@ -34,8 +36,14 @@
   overflow: hidden;
 }
 
+/* The strip then absorbs whatever is left. It used to be `flex: 0 0 auto`,
+   which let the move list grow to its full content height — on the Analysis
+   screen that measured 805px inside a 776px column, so the board got 0px and
+   the page overflowed past the tab bar. */
 .portraitNotation {
-  flex: 0 0 auto;
+  flex: 1 1 0;
+  min-height: 0;
+  overflow: hidden;
 }
 
 /* Bottom sheet holding the tabbed panels (#topRight). */

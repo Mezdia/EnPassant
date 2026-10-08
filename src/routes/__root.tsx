@@ -364,15 +364,24 @@ function RootLayout() {
   if (mobile) {
     // Android 15+ forces edge-to-edge on apps targeting 35, so the WebView draws
     // under the status and gesture bars and the insets have to be applied here
-    // or the top of the app hides behind the status icons. Main also scrolls
-    // instead of the fixed tab bar covering whatever overflows (Home).
+    // or the top of the app hides behind the status icons.
+    //
+    // The height subtracts the footer instead of letting AppShell pad for it:
+    // Chrome leaves a scroll container's own bottom padding out of scrollHeight,
+    // so that padding never clears the fixed tab bar and the last block on a
+    // page (Home's Recent Files, for one) ended up underneath it.
     return (
       <AppShell
         footer={{ height: "calc(3.5rem + env(safe-area-inset-bottom, 0px))" }}
         styles={{
           main: {
-            height: "100dvh",
+            height: "calc(100dvh - 3.5rem - env(safe-area-inset-bottom, 0px))",
+            // AppShell.Main ships its own min-height: 100dvh, which would
+            // otherwise override the height above and keep the content running
+            // under the fixed tab bar.
+            minHeight: 0,
             paddingTop: "env(safe-area-inset-top, 0px)",
+            paddingBottom: 0,
             overflowY: "auto",
             userSelect: "none",
           },
