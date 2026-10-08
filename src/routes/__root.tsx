@@ -362,13 +362,18 @@ function RootLayout() {
   }, [navigate, setTabs, setActiveTab]);
 
   if (mobile) {
-    // No native menu bar here, so About is reached from the Settings screen.
+    // Android 15+ forces edge-to-edge on apps targeting 35, so the WebView draws
+    // under the status and gesture bars and the insets have to be applied here
+    // or the top of the app hides behind the status icons. Main also scrolls
+    // instead of the fixed tab bar covering whatever overflows (Home).
     return (
       <AppShell
-        footer={{ height: "3.5rem" }}
+        footer={{ height: "calc(3.5rem + env(safe-area-inset-bottom, 0px))" }}
         styles={{
           main: {
-            height: "100vh",
+            height: "100dvh",
+            paddingTop: "env(safe-area-inset-top, 0px)",
+            overflowY: "auto",
             userSelect: "none",
           },
         }}

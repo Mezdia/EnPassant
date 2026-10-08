@@ -3,6 +3,10 @@
   <head>
     <title>EnPassant</title>
     <meta charset="utf-8" />
+    <!-- Without this the Android WebView lays out at a 980px viewport and
+         scales everything down; viewport-fit=cover is what makes
+         env(safe-area-inset-*) resolve instead of staying 0. -->
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
   </head>
 
   <body>

@@ -15,6 +15,16 @@
 }
 
 /* Board + notation strip fill the area behind the sheet. */
+.portrait {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  height: 100%;
+  /* Reserve exactly the collapsed sheet's handle, so the board area ends
+     where the handle begins instead of a twelfth of the screen lower. */
+  padding-bottom: 1.5rem;
+}
+
 .portraitBoard {
   flex: 1 1 auto;
   min-height: 0;
@@ -53,6 +63,16 @@
   transition: height 180ms ease;
 }
 
+/* At the peek snap the sheet is just its handle: no panel slice, and the
+   height comes from the handle so it hugs the bottom of the screen. */
+.sheetCollapsed {
+  height: 1.5rem;
+}
+
+.sheetCollapsed .sheetBody {
+  display: none;
+}
+
 .handleZone {
   flex: 0 0 auto;
   display: flex;
@@ -73,7 +93,10 @@
 .sheetBody {
   flex: 1 1 auto;
   min-height: 0;
-  overflow: hidden;
+  /* The wizard and the analysis panels are taller than a phone sheet at most
+     snap points; clipping them hid controls with no way to reach them. */
+  overflow-x: hidden;
+  overflow-y: auto;
   padding: 0 var(--mantine-spacing-xs) var(--mantine-spacing-xs);
 }
 
