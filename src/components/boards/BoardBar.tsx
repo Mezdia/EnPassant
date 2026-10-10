@@ -1,7 +1,9 @@
 import { Group, Text } from "@mantine/core";
 import type { ReactNode } from "react";
+import { useIsMobilePortrait } from "@/utils/useIsLandscape";
+import { MobileBoardBar } from "./MobileBoardBar";
 
-interface BoardBarProps {
+export interface BoardBarProps {
   name: string;
   rating?: string | number | null;
   onNameClick: () => void;
@@ -10,6 +12,19 @@ interface BoardBarProps {
 }
 
 export function BoardBar({ name, rating, onNameClick, height, children }: BoardBarProps) {
+  const mobilePortrait = useIsMobilePortrait();
+
+  // Portrait phones hide the eval-bar column this bar otherwise indents past,
+  // and the board competes with the notation strip for the screen's height, so
+  // the players become small corner captions instead (see MobileBoardBar).
+  if (mobilePortrait) {
+    return (
+      <MobileBoardBar name={name} rating={rating} onNameClick={onNameClick}>
+        {children}
+      </MobileBoardBar>
+    );
+  }
+
   return (
     <Group ml="2.5rem" mr="xs" h={height} justify="space-between" wrap="nowrap" align="flex-end">
       <Group gap={6} align="baseline">

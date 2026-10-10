@@ -1,0 +1,58 @@
+.bar {
+  display: flex;
+  flex-direction: row;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: var(--mantine-spacing-xs);
+  width: 100%;
+}
+
+/* The board column renders the opponent's bar first and the side in focus last,
+   so reversing the first one is what sends each name to its own far corner. The
+   negative margin pulls the caption across half of the column's gap, so it reads
+   as part of the board instead of as page furniture. */
+.bar:first-child {
+  flex-direction: row-reverse;
+  margin-block-end: -0.25rem;
+}
+
+/* Hugging the board means different edges for the two bars: the opponent's
+   caption sits at the bottom of its row, the focused side's at the top. */
+.bar:last-child {
+  align-items: flex-start;
+  margin-block-start: -0.25rem;
+}
+
+.identity {
+  display: flex;
+  flex-direction: row;
+  align-items: baseline;
+  gap: 0.25rem;
+  min-width: 0;
+}
+
+.name,
+.rating {
+  /* Fades the theme's dimmed color further back so the pair reads as board
+     furniture rather than as a heading. */
+  opacity: 0.6;
+}
+
+.name {
+  cursor: pointer;
+  padding-block: 0.2rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.status {
+  display: flex;
+  align-items: flex-end;
+  flex-wrap: nowrap;
+  /* ShowMaterial overlaps its icons with a -7px right margin, so the last one
+     sticks out past the group. Desktop absorbs that with its own end margin;
+     here it ran off the board column's clipped edge and cut the final piece in
+     half whenever the bar had no `+N` number to close with. */
+  padding-inline-end: var(--mantine-spacing-xs);
+}
