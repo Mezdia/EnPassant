@@ -66,11 +66,12 @@ import GameInfo from "../common/GameInfo";
 import GameNotation from "../common/GameNotation";
 import MoveControls from "../common/MoveControls";
 import { TreeStateContext } from "../common/TreeStateContext";
-import { SHEET_FULL, useMobileSheetOpen } from "../tabs/MobileBoardLayout";
 import Board from "./Board";
 import BoardControls from "./BoardControls";
 import EditingCard from "./EditingCard";
 import { MobileGameSetup } from "./MobileGameSetup";
+import { MobileGameBar } from "./MobileGameBar";
+import { MobileMoveStrip } from "./MobileMoveStrip";
 import { OpponentForm, type OpponentSettings } from "./OpponentForm";
 
 function gameResultToOutcome(result: GameResult): Outcome {
@@ -155,10 +156,6 @@ function BoardGame() {
   const isPlayerVsEngine =
     (players.white.type === "human" && players.black.type === "engine") ||
     (players.black.type === "human" && players.white.type === "engine");
-
-  // The mobile setup wizard lives in the #topRight portal, which in portrait is
-  // the bottom sheet — hold it open while there is a form to fill in.
-  useMobileSheetOpen(SHEET_FULL, gameState === "settingUp");
 
   const orientation = headers.orientation || "white";
   const toggleOrientation = () => {
@@ -800,25 +797,50 @@ function BoardGame() {
             setSelectedPiece={setSelectedPiece}
           />
         ) : (
-          <Stack h="100%" gap="xs">
-            <GameNotation
-              topBar
-              controls={
-                <BoardControls
-                  editingMode={gameState === "settingUp" && editingMode}
-                  toggleEditingMode={toggleEditingMode}
-                  dirty={false}
-                  canTakeBack={onePlayerIsEngine}
-                  onTakeBack={onTakeBack}
-                  disableVariations
-                  allowEditing={gameState === "settingUp"}
-                />
-              }
-            />
-            <MoveControls />
-          </Stack>
+          /* The phone puts the move list in a strip above the board and the
+             actions in its bottom bar, so the notation column stays empty. */
+          !isDesktop() || (
+            <Stack h="100%" gap="xs">
+              <GameNotation
+                topBar
+                controls={
+                  <BoardControls
+                    editingMode={gameState === "settingUp" && editingMode}
+                    toggleEditingMode={toggleEditingMode}
+                    dirty={false}
+                    canTakeBack={onePlayerIsEngine}
+                    onTakeBack={onTakeBack}
+                    disableVariations
+                    allowEditing={gameState === "settingUp"}
+                  />
+                }
+              />
+              <MoveControls />
+            </Stack>
+          )
         )}
       </Portal>
+      {!isDesktop() && (
+        <>
+          <Portal target="#mobileTopStrip" style={{ height: "100%" }}>
+            <MobileMoveStrip />
+          </Portal>
+          <Portal target="#mobileBottomBar" style={{ height: "100%" }}>
+            <MobileGameBar
+              playing={gameState === "playing"}
+              gameOver={gameState === "gameOver"}
+              engineVsEngine={isEngineVsEngine}
+              canTakeBack={onePlayerIsEngine}
+              onResignOrAbort={() => (isEngineVsEngine ? handleAbort() : handleResign())}
+              onNewGame={handleNewGame}
+              onAnalyze={() => changeToAnalysisMode()}
+              onTakeBack={onTakeBack}
+              editingMode={gameState === "settingUp" && editingMode}
+              toggleEditingMode={toggleEditingMode}
+            />
+          </Portal>
+        </>
+      )}
     </>
   );
 }

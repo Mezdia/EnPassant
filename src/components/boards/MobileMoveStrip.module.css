@@ -1,0 +1,41 @@
+/* The reference app's inline move strip: 40px, one line, scrolls sideways. */
+.strip {
+  height: 2.5rem;
+  border-bottom: 1px solid var(--mantine-color-default-border);
+}
+
+.line {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.625rem;
+  padding-inline: var(--mantine-spacing-xs);
+  white-space: nowrap;
+}
+
+.pair {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+}
+
+.number {
+  font-size: 0.875rem;
+  color: var(--mantine-color-dimmed);
+}
+
+.move,
+.current {
+  appearance: none;
+  border: 0;
+  padding: 0.125rem 0.25rem;
+  background: none;
+  font: inherit;
+  font-size: 0.875rem;
+  color: var(--mantine-color-dimmed);
+  cursor: pointer;
+}
+
+.current {
+  font-weight: 700;
+  color: var(--mantine-primary-color-filled);
+}

@@ -1,46 +1,40 @@
-.bar {
+/* Analysis: a fixed-height strip glued to the board column, matching the
+   reference app's 26px board header/footer. */
+.strip {
   display: flex;
   flex-direction: row;
-  align-items: flex-end;
+  align-items: center;
   justify-content: space-between;
   gap: var(--mantine-spacing-xs);
   width: 100%;
+  height: 1.625rem;
+  padding-inline-start: var(--mantine-spacing-xs);
 }
 
-/* The board column renders the opponent's bar first and the side in focus last,
-   so reversing the first one is what sends each name to its own far corner. The
-   negative margin pulls the caption across half of the column's gap, so it reads
-   as part of the board instead of as page furniture. */
-.bar:first-child {
-  flex-direction: row-reverse;
-  margin-block-end: -0.25rem;
-}
-
-/* Hugging the board means different edges for the two bars: the opponent's
-   caption sits at the bottom of its row, the focused side's at the top. */
-.bar:last-child {
-  align-items: flex-start;
-  margin-block-start: -0.25rem;
+/* Play: the tables take the height the square board leaves over, so the clock
+   and the material read as a row of their own instead of a caption. */
+.table {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--mantine-spacing-xs);
+  width: 100%;
+  flex: 1 1 0;
+  min-height: 2.75rem;
+  padding-inline: var(--mantine-spacing-sm);
 }
 
 .identity {
   display: flex;
   flex-direction: row;
   align-items: baseline;
-  gap: 0.25rem;
+  gap: 0.3125rem;
   min-width: 0;
-}
-
-.name,
-.rating {
-  /* Fades the theme's dimmed color further back so the pair reads as board
-     furniture rather than as a heading. */
-  opacity: 0.6;
 }
 
 .name {
   cursor: pointer;
-  padding-block: 0.2rem;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -48,11 +42,18 @@
 
 .status {
   display: flex;
-  align-items: flex-end;
-  flex-wrap: nowrap;
+  flex-direction: row;
+  align-items: center;
+  gap: var(--mantine-spacing-xs);
+  flex-shrink: 0;
   /* ShowMaterial overlaps its icons with a -7px right margin, so the last one
-     sticks out past the group. Desktop absorbs that with its own end margin;
-     here it ran off the board column's clipped edge and cut the final piece in
-     half whenever the bar had no `+N` number to close with. */
+     sticks out past its group; without this it is cut by the column's clip. */
   padding-inline-end: var(--mantine-spacing-xs);
+}
+
+/* The reference app's live-game clock is a 26px tabular block; ours keeps its
+   own paper and progress bar but grows to the same reading size. */
+.table :global(.mantine-Paper-root) :global(.mantine-Text-root) {
+  font-size: 1.625rem;
+  font-variant-numeric: tabular-nums;
 }

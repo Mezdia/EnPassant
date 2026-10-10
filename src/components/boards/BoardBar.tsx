@@ -1,6 +1,6 @@
 import { Group, Text } from "@mantine/core";
 import type { ReactNode } from "react";
-import { useIsMobilePortrait } from "@/utils/useIsLandscape";
+import { isDesktop } from "@/utils/platform";
 import { MobileBoardBar } from "./MobileBoardBar";
 
 export interface BoardBarProps {
@@ -12,12 +12,12 @@ export interface BoardBarProps {
 }
 
 export function BoardBar({ name, rating, onNameClick, height, children }: BoardBarProps) {
-  const mobilePortrait = useIsMobilePortrait();
+  const mobile = !isDesktop();
 
-  // Portrait phones hide the eval-bar column this bar otherwise indents past,
-  // and the board competes with the notation strip for the screen's height, so
-  // the players become small corner captions instead (see MobileBoardBar).
-  if (mobilePortrait) {
+  // Phones have no eval-bar column to indent past, and in portrait the board
+  // competes with the notation strip for the screen's height, so the players
+  // become strips attached to the board instead (see MobileBoardBar).
+  if (mobile) {
     return (
       <MobileBoardBar name={name} rating={rating} onNameClick={onNameClick}>
         {children}

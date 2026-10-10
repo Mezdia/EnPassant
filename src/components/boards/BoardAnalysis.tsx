@@ -3,6 +3,7 @@ import { useHotkeys, useToggle } from "@mantine/hooks";
 import {
   IconDatabase,
   IconInfoCircle,
+  IconList,
   IconNotes,
   IconTargetArrow,
   IconZoomCheck,
@@ -27,6 +28,7 @@ import {
 } from "@/state/atoms";
 import { keyMapAtom } from "@/state/keybinds";
 import { defaultPGN } from "@/utils/chess";
+import { isDesktop } from "@/utils/platform";
 import { getTabFile, saveToFile } from "@/utils/tabs";
 import DetachedEval from "../common/DetachedEval";
 import GameNotation from "../common/GameNotation";
@@ -41,9 +43,14 @@ import Board from "./Board";
 import BoardControls from "./BoardControls";
 import EditingCard from "./EditingCard";
 import EvalListener from "./EvalListener";
+import { MobileAnalysisBar } from "./MobileAnalysisBar";
 
 function BoardAnalysis() {
   const { t } = useTranslation();
+
+  // The phone shell gives the move list, the engine line and the actions their
+  // own regions instead of the notation column (see MobileBoardLayout).
+  const mobile = !isDesktop();
 
   const [editingMode, toggleEditingMode] = useToggle();
   const [selectedPiece, setSelectedPiece] = useState<Piece | null>(null);
@@ -120,6 +127,14 @@ function BoardAnalysis() {
   const practiceTabSelected = useAtomValue(currentPracticeTabAtom);
   const isRepertoire = tabFile?.metadata.type === "repertoire";
   const practicing = currentTabSelected === "practice" && practiceTabSelected === "train";
+
+  // On a phone the move list is a tab, so it opens on the tab the screen is
+  // mostly about rather than on the file info.
+  useEffect(() => {
+    if (mobile) {
+      setCurrentTabSelected("moves");
+    }
+  }, [mobile, setCurrentTabSelected]);
   const practiceState = useAtomValue(practiceStateAtom);
   const isPracticeRating = practicing && practiceState.phase === "correct";
 
@@ -211,6 +226,11 @@ function BoardAnalysis() {
             }}
           >
             <Tabs.List grow>
+              {mobile && (
+                <Tabs.Tab value="moves" leftSection={<IconList size="1rem" />}>
+                  {t("Board.Tabs.Moves")}
+                </Tabs.Tab>
+              )}
               {isRepertoire && (
                 <Tabs.Tab value="practice" leftSection={<IconTargetArrow size="1rem" />}>
                   {t("Board.Tabs.Practice")}
@@ -229,6 +249,11 @@ function BoardAnalysis() {
                 {t("Board.Tabs.Info")}
               </Tabs.Tab>
             </Tabs.List>
+            {mobile && (
+              <Tabs.Panel value="moves" flex={1} style={{ overflowY: "hidden" }}>
+                <GameNotation topBar />
+              </Tabs.Panel>
+            )}
             {isRepertoire && (
               <Tabs.Panel value="practice" flex={1} style={{ overflowY: "hidden" }}>
                 <PracticePanel />
@@ -258,23 +283,40 @@ function BoardAnalysis() {
             setSelectedPiece={setSelectedPiece}
           />
         ) : (
-          <Stack h="100%" gap="xs">
-            <DetachedEval />
-            <GameNotation
-              topBar
-              controls={
-                <BoardControls
-                  editingMode={editingMode}
-                  toggleEditingMode={toggleEditingMode}
-                  dirty={dirty}
-                  saveFile={userSaveFile}
-                />
-              }
-            />
-            <MoveControls />
-          </Stack>
+          !mobile && (
+            <Stack h="100%" gap="xs">
+              <DetachedEval />
+              <GameNotation
+                topBar
+                controls={
+                  <BoardControls
+                    editingMode={editingMode}
+                    toggleEditingMode={toggleEditingMode}
+                    dirty={dirty}
+                    saveFile={userSaveFile}
+                  />
+                }
+              />
+              <MoveControls />
+            </Stack>
+          )
         )}
       </Portal>
+      {mobile && (
+        <>
+          <Portal target="#mobileEngineLines">
+            <DetachedEval />
+          </Portal>
+          <Portal target="#mobileBottomBar" style={{ height: "100%" }}>
+            <MobileAnalysisBar
+              editingMode={editingMode}
+              toggleEditingMode={toggleEditingMode}
+              dirty={dirty}
+              saveFile={userSaveFile}
+            />
+          </Portal>
+        </>
+      )}
     </>
   );
 }
