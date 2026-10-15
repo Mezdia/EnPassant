@@ -1,6 +1,0 @@
-/* Portrait phones show the eval gauge on the board's end edge, like the
-   reference app, instead of dropping it. The board row is a flex line, so an
-   order swap moves the gauge after the board without reordering upstream JSX. */
-.boardRow > :first-child {
-  order: 2;
-}

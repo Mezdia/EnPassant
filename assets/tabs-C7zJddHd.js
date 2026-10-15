@@ -1,0 +1,1 @@
+import"./react-CAG-KBq9.js";import"./treeReducer-BObtI7WL.js";import"./chess-Cqwq4WMG.js";import{$t as i,Jt as r,Qt as m,Xt as o,Yt as n,Zt as p,en as b,tn as T}from"./index-CiFV1AKy.js";export{r as createTab,n as genID,o as getTabFile,p as getTabGameNumber,m as isInTempDir,i as isPersistentGameOrigin,b as saveToFile,T as tabSchema};
