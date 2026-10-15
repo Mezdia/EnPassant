@@ -7,6 +7,7 @@ import { useTranslation } from "react-i18next";
 import { showArrowsAtom, showConsecutiveArrowsAtom, showVariationArrowsAtom } from "@/state/atoms";
 import { TreeStateContext } from "../common/TreeStateContext";
 import BoardControls from "./BoardControls";
+import { MobileBookmarkSection } from "./MobileBookmarkSection";
 import classes from "./MobileAnalysisMenu.module.css";
 
 interface MobileAnalysisMenuProps {
@@ -90,6 +91,9 @@ export function MobileAnalysisMenu({
           saveFile={saveFile}
         />
       </div>
+
+      {/* MobileBookmarkSection brings its own leading Divider */}
+      <MobileBookmarkSection />
 
       <Divider />
 
