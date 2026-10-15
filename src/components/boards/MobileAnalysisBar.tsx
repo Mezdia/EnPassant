@@ -13,8 +13,8 @@ import { useStore } from "zustand";
 import { allEnabledAtom, enableAllAtom } from "@/state/atoms";
 import { keyMapAtom } from "@/state/keybinds";
 import { TreeStateContext } from "../common/TreeStateContext";
-import BoardControls from "./BoardControls";
 import classes from "./MobileAnalysisBar.module.css";
+import { MobileAnalysisMenu } from "./MobileAnalysisMenu";
 
 interface MobileAnalysisBarProps {
   editingMode: boolean;
@@ -49,6 +49,11 @@ export function MobileAnalysisBar({
   const [, enable] = useAtom(enableAllAtom);
   const keyMap = useAtomValue(keyMapAtom);
 
+  // Real disabled states for the steppers, mirroring the store's own guards:
+  // back only when off the root, forward only when a child move exists.
+  const atStart = useStore(store, (s) => s.position.length === 0);
+  const atEnd = useStore(store, (s) => !s.currentNode().children.some((c) => c.move));
+
   const orientation = headers.orientation || "white";
   const toggleOrientation = () =>
     setHeaders({
@@ -81,6 +86,7 @@ export function MobileAnalysisBar({
           variant={allEnabled ? "filled" : "transparent"}
           onClick={() => enable(!allEnabled)}
           aria-label={t("Board.Mobile.Engine")}
+          aria-pressed={allEnabled}
         >
           <IconZoomCheck size="1.35rem" />
         </ActionIcon>
@@ -88,6 +94,7 @@ export function MobileAnalysisBar({
           className={classes.button}
           variant="transparent"
           onClick={previous}
+          disabled={atStart}
           aria-label={t("Board.Mobile.Previous")}
         >
           <IconChevronLeft size="1.35rem" />
@@ -96,6 +103,7 @@ export function MobileAnalysisBar({
           className={classes.button}
           variant="transparent"
           onClick={next}
+          disabled={atEnd}
           aria-label={t("Board.Mobile.Next")}
         >
           <IconChevronRight size="1.35rem" />
@@ -108,14 +116,13 @@ export function MobileAnalysisBar({
         position="bottom"
         withCloseButton
       >
-        <div className={classes.actions}>
-          <BoardControls
-            editingMode={editingMode}
-            toggleEditingMode={toggleEditingMode}
-            dirty={dirty}
-            saveFile={saveFile}
-          />
-        </div>
+        <MobileAnalysisMenu
+          editingMode={editingMode}
+          toggleEditingMode={toggleEditingMode}
+          dirty={dirty}
+          saveFile={saveFile}
+          onClose={() => setMenuOpen(false)}
+        />
       </Drawer>
     </>
   );

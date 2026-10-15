@@ -14,11 +14,3 @@
 .button:hover {
   color: var(--mantine-color-text);
 }
-
-/* BoardControls lays its icons out in a column for the notation strip; in the
-   bottom sheet they read as a row of actions instead. */
-.actions :global(.mantine-Stack-root) {
-  flex-direction: row;
-  justify-content: space-around;
-  gap: var(--mantine-spacing-xs);
-}
