@@ -56,8 +56,12 @@
 .bar {
   grid-area: bar;
   /* The row is `auto` so the legacy region can keep its own height in
-     landscape; the bar's 56px comes from the reference app. */
+     landscape; the bar's 56px comes from the reference app. Gesture bars sit
+     over the bottom of the viewport, so the safe-area inset is added outside
+     the 56px — content-box keeps the touch targets a full 3.5rem tall. */
   height: 3.5rem;
+  padding-bottom: env(safe-area-inset-bottom, 0px);
+  box-sizing: content-box;
 }
 
 /* Short phones cannot fit a full-width square plus the strips and the action
@@ -87,8 +91,9 @@
     align-items: center;
     /* Landscape is wide but short: the square has to be sized by the height the
        two strips leave over, not by the column's width, or the bottom player
-       strip falls off the screen. */
-    max-width: calc(100dvh - 110px);
+       strip falls off the screen. The action bar grows by the safe-area inset
+       below the board rows, so the allowance shrinks by the same amount. */
+    max-width: calc(100dvh - 110px - env(safe-area-inset-bottom, 0px));
     justify-self: center;
   }
 
