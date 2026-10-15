@@ -1,0 +1,40 @@
+/* Two stacked rows inside #mobileEngineLines: the eval strip, then the PV row.
+   The region's grid row is `auto`, so an engine-off screen costs nothing. */
+.root {
+  display: flex;
+  flex-direction: column;
+  gap: var(--mantine-spacing-xs);
+  min-width: 0;
+}
+
+/* A real <button> for the tap-to-expand PV line: transparent chrome, left
+   aligned text, and the reference app's card border. */
+.pv {
+  display: block;
+  width: 100%;
+  padding: 0.25rem var(--mantine-spacing-sm);
+  border: 1px solid var(--mantine-color-default-border);
+  border-radius: var(--mantine-radius-default);
+  background-color: var(--mantine-color-body);
+  color: var(--mantine-color-dimmed);
+  text-align: left;
+  cursor: pointer;
+}
+
+.pv:hover {
+  background-color: var(--mantine-color-default-hover);
+}
+
+.pvCollapsed {
+  display: block;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.pvExpanded {
+  white-space: normal;
+  overflow-wrap: anywhere;
+  max-height: 4.5rem;
+  overflow-y: auto;
+}
