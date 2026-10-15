@@ -1,0 +1,23 @@
+/* Bottom-sheet content: roomy rows, no new tokens. */
+.sheet {
+  padding-bottom: var(--mantine-spacing-md);
+}
+
+/* BoardControls lays its icons out in a column for the notation strip; in the
+   bottom sheet they read as a row of actions instead. */
+.controls :global(.mantine-Stack-root) {
+  flex-direction: row;
+  justify-content: space-around;
+  gap: var(--mantine-spacing-xs);
+}
+
+.toggleCell {
+  flex: 1 1 0;
+  min-width: 0;
+}
+
+.toggleLabel {
+  /* two-line labels keep the cell height even when a locale is verbose */
+  min-height: 2em;
+  line-height: 1.1;
+}

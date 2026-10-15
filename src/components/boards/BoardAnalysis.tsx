@@ -1,4 +1,4 @@
-import { Paper, Portal, Stack, Tabs } from "@mantine/core";
+import { Box, Paper, Portal, Stack, Tabs } from "@mantine/core";
 import { useHotkeys, useToggle } from "@mantine/hooks";
 import {
   IconDatabase,
@@ -44,6 +44,8 @@ import BoardControls from "./BoardControls";
 import EditingCard from "./EditingCard";
 import EvalListener from "./EvalListener";
 import { MobileAnalysisBar } from "./MobileAnalysisBar";
+import { MobileEngineLines } from "./MobileEngineLines";
+import { MobileOpeningSummary } from "./MobileOpeningSummary";
 
 function BoardAnalysis() {
   const { t } = useTranslation();
@@ -262,8 +264,17 @@ function BoardAnalysis() {
             <Tabs.Panel value="info" flex={1} style={{ overflowY: "hidden" }}>
               <InfoPanel addGame={addGame} />
             </Tabs.Panel>
-            <Tabs.Panel value="database" flex={1} style={{ overflowY: "hidden" }}>
-              <DatabasePanel />
+            <Tabs.Panel
+              value="database"
+              flex={1}
+              /* mobile gets a summary header above the explorer; the flex
+                 column keeps the desktop panel filling the same space */
+              style={{ overflowY: "hidden", display: "flex", flexDirection: "column" }}
+            >
+              {mobile && <MobileOpeningSummary />}
+              <Box flex={1} style={{ minHeight: 0 }}>
+                <DatabasePanel />
+              </Box>
             </Tabs.Panel>
             <Tabs.Panel value="annotate" flex={1} style={{ overflowY: "hidden" }}>
               <AnnotationPanel />
@@ -305,7 +316,7 @@ function BoardAnalysis() {
       {mobile && (
         <>
           <Portal target="#mobileEngineLines">
-            <DetachedEval />
+            <MobileEngineLines />
           </Portal>
           <Portal target="#mobileBottomBar" style={{ height: "100%" }}>
             <MobileAnalysisBar
