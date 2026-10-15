@@ -1,0 +1,14 @@
+/* The game's settings sheet: one bordered row of compact switches — sound,
+   premoves, auto-flip — the reference app's game-settings group, native to
+   the EnPassant theme via tokens only. */
+.settings {
+  border: 1px solid var(--mantine-color-default-border);
+  border-radius: var(--mantine-radius-sm);
+  padding: var(--mantine-spacing-xs) var(--mantine-spacing-sm);
+  background-color: var(--mantine-color-body);
+}
+
+.settings :global(.mantine-Switch-label) {
+  font-size: var(--mantine-font-size-sm);
+  color: var(--mantine-color-text);
+}

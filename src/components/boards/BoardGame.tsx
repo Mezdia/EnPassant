@@ -52,6 +52,7 @@ import {
   gameOpeningBookPathAtom,
   gamePlayer1SettingsAtom,
   gamePlayer2SettingsAtom,
+  gamePremovesEnabledAtom,
   gameSameTimeControlAtom,
   tabsAtom,
 } from "@/state/atoms";
@@ -138,6 +139,8 @@ function BoardGame() {
   const boardRef = useRef(null);
   const cgRef = useRef<ChessgroundRef>(null);
   const [gameState, setGameState] = useAtom(currentGameStateAtom);
+  // The phone menu's premove switch; defaults on, so desktop play is unchanged.
+  const premovesEnabled = useAtomValue(gamePremovesEnabledAtom);
   const [players, setPlayers] = useAtom(currentPlayersAtom);
 
   const [whiteTime, setWhiteTime] = useState<number | null>(null);
@@ -607,7 +610,7 @@ function BoardGame() {
           onMove={handleHumanMove}
           selectedPiece={selectedPiece}
           cgRef={cgRef}
-          enablePremoves={isPlayerVsEngine && gameState === "playing"}
+          enablePremoves={isPlayerVsEngine && gameState === "playing" && premovesEnabled}
         />
       </Portal>
       <Portal target="#topRight" style={{ height: "100%", overflow: "hidden" }}>
