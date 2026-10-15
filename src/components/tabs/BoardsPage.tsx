@@ -191,6 +191,8 @@ export default function BoardsPage() {
     ["ctrl+9", () => selectTab(tabs.length - 1)],
   ]);
 
+  const mobile = !isDesktop();
+
   return (
     <Tabs
       value={activeTab}
@@ -275,7 +277,16 @@ export default function BoardsPage() {
         </ScrollArea>
       )}
       {tabs.map((tab) => (
-        <Tabs.Panel key={tab.value} value={tab.value} h="100%" w="100%" pb="sm" px="xs">
+        <Tabs.Panel
+          key={tab.value}
+          value={tab.value}
+          h={mobile ? undefined : "100%"}
+          flex={mobile ? 1 : undefined}
+          mih={mobile ? 0 : undefined}
+          w="100%"
+          pb="sm"
+          px="xs"
+        >
           <TabSwitch
             tab={tab}
             saveModalOpened={saveModalOpened}
