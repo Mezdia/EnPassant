@@ -1,13 +1,4 @@
-import {
-  ActionIcon,
-  Button,
-  Drawer,
-  Group,
-  Modal,
-  Stack,
-  Switch,
-  Text,
-} from "@mantine/core";
+import { ActionIcon, Button, Drawer, Group, Modal, Stack, Switch, Text } from "@mantine/core";
 import { notifications } from "@mantine/notifications";
 import {
   IconArrowBack,
@@ -24,11 +15,7 @@ import { useAtom } from "jotai";
 import { useContext, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { useStore } from "zustand";
-import {
-  flipBoardAfterMoveAtom,
-  gamePremovesEnabledAtom,
-  soundVolumeAtom,
-} from "@/state/atoms";
+import { flipBoardAfterMoveAtom, gamePremovesEnabledAtom, soundVolumeAtom } from "@/state/atoms";
 import { TreeStateContext } from "../common/TreeStateContext";
 import BoardControls from "./BoardControls";
 import classes from "./MobileAnalysisBar.module.css";
@@ -103,7 +90,11 @@ export function MobileGameBar({
   }
 
   const confirmTitle =
-    pending === "takeback" ? t("Board.Mobile.Takeback") : engineVsEngine ? t("Board.Mobile.Abort") : t("Board.Mobile.Resign");
+    pending === "takeback"
+      ? t("Board.Mobile.Takeback")
+      : engineVsEngine
+        ? t("Board.Mobile.Abort")
+        : t("Board.Mobile.Resign");
   const confirmBody =
     pending === "takeback"
       ? t("Board.Mobile.ConfirmTakeback")
@@ -234,11 +225,7 @@ export function MobileGameBar({
               onChange={(e) => setAutoFlip(e.currentTarget.checked)}
             />
           </Group>
-          <Button
-            variant="default"
-            leftSection={<IconCopy size="1rem" />}
-            onClick={handleCopyPgn}
-          >
+          <Button variant="default" leftSection={<IconCopy size="1rem" />} onClick={handleCopyPgn}>
             {t("Board.Mobile.CopyPgn")}
           </Button>
           <div className={classes.actions}>

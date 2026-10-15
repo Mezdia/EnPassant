@@ -56,8 +56,7 @@ export function MobileMoveStrip() {
   if (items.length === 0) return null;
 
   const lastPath = items[items.length - 1].path;
-  const atLive =
-    position.length === lastPath.length && position.join() === lastPath.join();
+  const atLive = position.length === lastPath.length && position.join() === lastPath.join();
 
   return (
     <div className={classes.wrap}>
@@ -68,26 +67,26 @@ export function MobileMoveStrip() {
         className={classes.strip}
         offsetScrollbars={false}
       >
-      <div className={classes.line}>
-        {items.map((item) => {
-          const current =
-            item.path.length === position.length && item.path.join() === position.join();
-          const number = Math.ceil(item.halfMoves / 2);
-          return (
-            <span key={item.path.join()} className={classes.pair}>
-              {item.halfMoves % 2 === 1 && <span className={classes.number}>{number}.</span>}
-              <button
-                type="button"
-                ref={current ? currentRef : undefined}
-                className={current ? classes.current : classes.move}
-                onClick={() => goToMove(item.path)}
-              >
-                {item.san}
-              </button>
-            </span>
-          );
-        })}
-      </div>
+        <div className={classes.line}>
+          {items.map((item) => {
+            const current =
+              item.path.length === position.length && item.path.join() === position.join();
+            const number = Math.ceil(item.halfMoves / 2);
+            return (
+              <span key={item.path.join()} className={classes.pair}>
+                {item.halfMoves % 2 === 1 && <span className={classes.number}>{number}.</span>}
+                <button
+                  type="button"
+                  ref={current ? currentRef : undefined}
+                  className={current ? classes.current : classes.move}
+                  onClick={() => goToMove(item.path)}
+                >
+                  {item.san}
+                </button>
+              </span>
+            );
+          })}
+        </div>
       </ScrollArea>
       {!atLive && (
         <button
