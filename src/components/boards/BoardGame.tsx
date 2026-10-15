@@ -73,6 +73,7 @@ import EditingCard from "./EditingCard";
 import { MobileGameSetup } from "./MobileGameSetup";
 import { MobileGameBar } from "./MobileGameBar";
 import { MobileMoveStrip } from "./MobileMoveStrip";
+import { MobileMoveTimes } from "./MobileMoveTimes";
 import { OpponentForm, type OpponentSettings } from "./OpponentForm";
 
 function gameResultToOutcome(result: GameResult): Outcome {
@@ -751,6 +752,10 @@ function BoardGame() {
                   <Box flex={1}>
                     <GameInfo headers={headers} />
                   </Box>
+                  {/* Phones have no post-game stats surface; the reference app
+                      shows move times after the game ends. Desktop keeps its
+                      own report flow untouched. */}
+                  {!isDesktop() && gameState === "gameOver" && <MobileMoveTimes />}
                   <Group grow>
                     {gameState === "playing" && (
                       <Button
