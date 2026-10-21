@@ -42,10 +42,11 @@ export default defineConfig({
     server: {
         port: 1422,
         strictPort: true,
-        // `demo/mobile-preview.html` exists to be opened on a real phone, and a
-        // phone reaches this dev server through a tunnel (cloudflared, ngrok…).
-        // Those requests carry the tunnel's host name, which Vite rejects with
-        // "Blocked request" unless it is listed here. localhost is always allowed.
+        // The mobile preview (`mobile-preview/index.html`) is meant to be opened
+        // on a real phone, and a phone reaches this dev server through a tunnel
+        // (cloudflared, ngrok…). Those requests carry the tunnel's host name,
+        // which Vite rejects with "Blocked request" unless it is listed here.
+        // localhost is always allowed.
         allowedHosts: [".trycloudflare.com", ".ngrok-free.app", ".ngrok.io", ".loca.lt"],
     },
     build: {

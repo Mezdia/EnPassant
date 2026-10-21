@@ -37,7 +37,7 @@ python3 -m http.server 4173 --directory dist-demo
 | Autoplay            | `src/demo/autoplay.ts`                   | scripted, human-looking walkthrough driven by real DOM events; aborts on the first trusted `pointerdown`/`click`                                 |
 | Height reporting    | `src/demo/autoplay.ts`                   | `postMessage({source:"enpassant-demo", type:"resize", height})` whenever the content resizes                                                     |
 | Router basepath     | `src/App.tsx`                            | derives the router basepath from the page URL so routes work at `/`, `/demo/`, or a CDN prefix                                                   |
-| Phone preview       | `demo/mobile-preview.html`               | dev-only frame at four phone sizes; not a build input, so it never ships                                                                         |
+| Mobile preview      | `mobile-preview/index.html`              | dev-only harness at four phone sizes; lives outside `demo/`, so it never ships                                                                   |
 
 ## The default session
 
@@ -46,22 +46,26 @@ fixture games already open in the analysis tab** — like a session that was
 left running. `sessionStorage` is cleared at boot so a refresh rolls a new
 game.
 
-## Phone preview
+## Mobile preview
 
-`demo/mobile-preview.html` is the dev-only way to look at the mobile UI. It
-frames the demo in a real CSS viewport and switches between four presets
-(360×800, 390×844, 412×915, 768×1024), so the app's 767px platform switch, the
-mobile shell (`BottomTabBar`, `MobileBoardLayout`) and every media query behave
-as they do on a device.
+The **mobile preview** is the dev-only way to look at the mobile UI. It is a
+separate page (`mobile-preview/index.html`, served at `/mobile-preview/`) that
+frames the **website demo** (`/demo/`) in a real CSS viewport and switches between
+four presets (360×800, 390×844, 412×915, 768×1024), so the app's 767px platform
+switch, the mobile shell (`BottomTabBar`, `MobileBoardLayout`) and every media
+query behave as they do on a device.
+
+Terminology (see the glossary in `AGENTS.md`): «پیش‌نمایش موبایل» always means
+`/mobile-preview/`; «دمو وبسایت» always means the embedded website demo at `/demo/`.
 
 ```bash
 pnpm dev:demo
-# http://localhost:1422/demo/mobile-preview.html
+# http://localhost:1422/mobile-preview/
 ```
 
-- It is **not** a Vite build input: it never reaches `dist-demo/` or the
-  `demo-build` branch, and it frames `index.html` from its own directory, so it
-  keeps working under any base path.
+- It is **not** a Vite build input and it lives outside `demo/`, so it never
+  reaches `dist-demo/` or the `demo-build` branch. It frames `../demo/`, so the
+  website demo keeps working at any mount path independently of the harness.
 - Opening `/demo/` in a narrow window also reports `"android"`
   (`installResponsivePlatform` in `src/demo/bootstrap.ts`), but the harness
   gives an exact viewport and a device-sized frame without touching devtools.

@@ -19,6 +19,31 @@ Everything else is intended to stay **as close to upstream as possible**.
 
 ---
 
+## Terminology — two different things called "demo"
+
+The word "demo" alone is ambiguous in this repository, so it is banned in docs and
+replies. Use one of these two exact names:
+
+| Name (fa)                                     | Name (en)                          | What it is                                                                                                                                                                                               | Address                                                                       |
+| --------------------------------------------- | ---------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------- |
+| «پیش‌نمایش موبایل» / «دمو رابط کاربری موبایل» | **mobile preview** (phone preview) | Dev-only harness (`mobile-preview/index.html`). Frames the **website demo** in a real CSS viewport at four phone/tablet presets. Never built, never published — it only exists on the dev server.        | `http://localhost:1422/mobile-preview/` (or `<tunnel>/mobile-preview/`)       |
+| «دمو وبسایت»                                  | **website demo** (embedded demo)   | The embeddable demo app (`demo/index.html` + `src/demo/`). Built to `dist-demo/demo/`, force-pushed to the `demo-build` branch, fetched and mounted by the enpassant.ir website. A live public contract. | `http://localhost:1422/demo/` (or `<tunnel>/demo/`); on the website: `/demo/` |
+
+Rules that follow from this table:
+
+- When the user says **«پیش‌نمایش موبایل» / «دمو رابط کاربری موبایل»**, they mean
+  `mobile-preview/` — the harness page. Hand them `/mobile-preview/`, not `/demo/`.
+- When the user says **«دمو وبسایت»**, they mean the embedded demo at `/demo/` —
+  the thing whose output is published to `demo-build` for enpassant.ir.
+- `demo/` (the source directory) belongs to the **website demo** only. The mobile
+  preview lives in its own top-level `mobile-preview/` directory precisely so the
+  two can never be confused again.
+- `/demo/` is the website's production mount path. Do **not** rename it: the
+  `demo-build` branch layout and the enpassant.ir embed depend on it (see
+  [Demo contract](#demo-contract-do-not-break)).
+
+---
+
 ## Prime directive: keep upstream mergeable
 
 We regularly pull merges and cherry-pick PRs from
@@ -194,14 +219,15 @@ cd src-tauri && cargo check --target aarch64-linux-android    # needs the NDK
 A `#[cfg]` typo means one platform silently fails to compile, and desktop-only CI will
 not catch it.
 
-**Cheapest way to test the mobile UI:** the dev-only phone preview,
-`demo/mobile-preview.html`. It frames the demo in a real CSS viewport at 360×800,
-390×844, 412×915 and 768×1024, so the 767px platform switch and every media query
-behave as they do on a device — no emulator, no devtools resizing:
+**Cheapest way to test the mobile UI:** the dev-only **mobile preview**,
+`mobile-preview/index.html` (served at `/mobile-preview/`). It frames the **website
+demo** in a real CSS viewport at 360×800, 390×844, 412×915 and 768×1024, so the
+767px platform switch and every media query behave as they do on a device — no
+emulator, no devtools resizing:
 
 ```bash
 pnpm dev:demo
-# open http://localhost:1422/demo/mobile-preview.html
+# open http://localhost:1422/mobile-preview/
 ```
 
 To look at it on a phone, expose that dev server (`pnpm dev:demo --host` for the LAN, or
@@ -246,8 +272,9 @@ When resolving conflicts:
    new plugin is desktop-only, it goes in the `Cargo.toml` target block _and_
    `capabilities/desktop.json` _and_ a `#[cfg(desktop)]` registration — all three, or
    the Android build breaks.
-4. **New upstream UI:** check it at phone size in the preview (`pnpm dev:demo` →
-   `http://localhost:1422/demo/mobile-preview.html`) before declaring the merge clean.
+4. **New upstream UI:** check it at phone size in the **mobile preview**
+   (`pnpm dev:demo` → `http://localhost:1422/mobile-preview/`) before declaring
+   the merge clean.
 5. Re-run the full verification block above, then `pnpm build`.
 
 ---
@@ -266,11 +293,12 @@ live contract.
   touches a real backend.
 - `vite.config.demo.ts` + `demo/index.html` — build entry; **must stay in
   sync with the main app**. Output: `dist-demo/` (gitignored).
-- `demo/mobile-preview.html` — dev-only phone preview. Frames `demo/index.html`
-  (same directory, so it works under any base path) at four phone/tablet
-  presets and remembers the last one. It is **not** a Vite build input, so it
-  never reaches `dist-demo/` or the `demo-build` branch — keep it that way;
-  it exists purely to exercise the mobile shell without an emulator.
+- `mobile-preview/index.html` — the dev-only **mobile preview** (served at
+  `/mobile-preview/`). Frames the **website demo** (`../demo/`) at four phone/tablet
+  presets and remembers the last one. It is **not** a Vite build input and lives
+  outside `demo/`, so it never reaches `dist-demo/` or the `demo-build` branch —
+  keep it that way; it exists purely to exercise the mobile shell without an
+  emulator.
 - `.github/workflows/demo.yml` — on every push to `master` it builds the demo
   and force-pushes `dist-demo` to the **`demo-build`** branch. The branch root
   is the flattened `dist-demo/demo/` bundle (`index.html`, `assets/`,
@@ -318,8 +346,8 @@ live contract.
   `src/demo/tauri/mock.ts` with raw returns.
 - The demo mock also fakes the OS plugin (`DemoPlatform = "linux" | "android"`),
   which is what makes the mobile layout testable in a browser. Keep that surface
-  working when you add platform branches — `demo/mobile-preview.html` (see
-  "Verification before you finish") is built entirely on it.
+  working when you add platform branches — the **mobile preview**
+  (`mobile-preview/`, see "Verification before you finish") is built entirely on it.
 - Before merging anything that touches `src/demo/`, the website pipeline,
   `demo.yml`, or `src/App.tsx`, run: `pnpm lint:ci && pnpm test && pnpm build:demo`.
 

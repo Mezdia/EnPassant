@@ -151,8 +151,9 @@
           : undefined;
       apply(PRESETS.find((p) => p.label === saved) ?? closest ?? PRESETS[1]);
 
-      // Same directory as this harness, so it keeps working under any base path.
-      frame.src = new URL("index.html", location.href).href;
+      // The website demo lives at /demo/ (see AGENTS.md glossary); the harness
+      // only ever frames that, never itself.
+      frame.src = new URL("../demo/", location.href).href;
     </script>
   </body>
 </html>
