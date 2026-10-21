@@ -1,0 +1,51 @@
+'use client';
+import { jsx } from 'react/jsx-runtime';
+import { forwardRef } from 'react';
+import { useMergedRef } from '@mantine/hooks';
+import '../../../core/utils/units-converters/rem.mjs';
+import 'clsx';
+import '../../../core/MantineProvider/Mantine.context.mjs';
+import '../../../core/MantineProvider/default-theme.mjs';
+import '../../../core/MantineProvider/MantineProvider.mjs';
+import '../../../core/MantineProvider/MantineThemeProvider/MantineThemeProvider.mjs';
+import '../../../core/MantineProvider/MantineCssVariables/MantineCssVariables.mjs';
+import { Box } from '../../../core/Box/Box.mjs';
+import '../../../core/DirectionProvider/DirectionProvider.mjs';
+import { useScrollAreaContext } from '../ScrollArea.context.mjs';
+
+const ScrollAreaViewport = forwardRef(
+  ({ children, style, onWheel, ...others }, ref) => {
+    const ctx = useScrollAreaContext();
+    const rootRef = useMergedRef(ref, ctx.onViewportChange);
+    const handleWheel = (event) => {
+      onWheel?.(event);
+      if (ctx.scrollbarXEnabled && ctx.viewport && event.shiftKey) {
+        const { scrollTop, scrollHeight, clientHeight, scrollWidth, clientWidth } = ctx.viewport;
+        const isAtTop = scrollTop < 1;
+        const isAtBottom = scrollTop >= scrollHeight - clientHeight - 1;
+        const canScrollHorizontally = scrollWidth > clientWidth;
+        if (canScrollHorizontally && (isAtTop || isAtBottom)) {
+          event.stopPropagation();
+        }
+      }
+    };
+    return /* @__PURE__ */ jsx(
+      Box,
+      {
+        ...others,
+        ref: rootRef,
+        onWheel: handleWheel,
+        style: {
+          overflowX: ctx.scrollbarXEnabled ? "scroll" : "hidden",
+          overflowY: ctx.scrollbarYEnabled ? "scroll" : "hidden",
+          ...style
+        },
+        children: /* @__PURE__ */ jsx("div", { ...ctx.getStyles("content"), ref: ctx.onContentChange, children })
+      }
+    );
+  }
+);
+ScrollAreaViewport.displayName = "@mantine/core/ScrollAreaViewport";
+
+export { ScrollAreaViewport };
+//# sourceMappingURL=ScrollAreaViewport.mjs.map

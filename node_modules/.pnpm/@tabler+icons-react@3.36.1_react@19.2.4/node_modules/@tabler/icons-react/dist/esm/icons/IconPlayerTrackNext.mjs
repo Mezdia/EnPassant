@@ -1,0 +1,14 @@
+/**
+ * @license @tabler/icons-react v3.36.1 - MIT
+ *
+ * This source code is licensed under the MIT license.
+ * See the LICENSE file in the root directory of this source tree.
+ */
+
+import createReactComponent from '../createReactComponent.mjs';
+
+const __iconNode = [["path", { "d": "M3 5v14l8 -7l-8 -7", "key": "svg-0" }], ["path", { "d": "M14 5v14l8 -7l-8 -7", "key": "svg-1" }]];
+const IconPlayerTrackNext = createReactComponent("outline", "player-track-next", "PlayerTrackNext", __iconNode);
+
+export { __iconNode, IconPlayerTrackNext as default };
+//# sourceMappingURL=IconPlayerTrackNext.mjs.map

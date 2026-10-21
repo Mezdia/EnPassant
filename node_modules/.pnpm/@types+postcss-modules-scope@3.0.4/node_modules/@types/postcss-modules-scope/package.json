@@ -1,0 +1,27 @@
+{
+    "name": "@types/postcss-modules-scope",
+    "version": "3.0.4",
+    "description": "TypeScript definitions for postcss-modules-scope",
+    "homepage": "https://github.com/DefinitelyTyped/DefinitelyTyped/tree/master/types/postcss-modules-scope",
+    "license": "MIT",
+    "contributors": [
+        {
+            "name": "Jeow Li Huan",
+            "githubUsername": "huan086",
+            "url": "https://github.com/huan086"
+        }
+    ],
+    "main": "",
+    "types": "index.d.ts",
+    "repository": {
+        "type": "git",
+        "url": "https://github.com/DefinitelyTyped/DefinitelyTyped.git",
+        "directory": "types/postcss-modules-scope"
+    },
+    "scripts": {},
+    "dependencies": {
+        "postcss": "^8.0.0"
+    },
+    "typesPublisherContentHash": "e462bff8abf6383341ca518eb1842a3b0b9324d712b0551e3d8d9023a2312e5e",
+    "typeScriptVersion": "4.5"
+}
