@@ -129,3 +129,13 @@
   flex: 1 1 0;
   min-width: 0;
 }
+
+/* Portrait: 26px tabs are too small for a thumb, and the freed label strip
+   sits unused — so the tab grows into a real 36px target. Landscape keeps
+   upstream's compact row. */
+@media (orientation: portrait) {
+  .panels :global(.mantine-Tabs-tab) {
+    height: 2.25rem;
+    min-height: 2.25rem;
+  }
+}

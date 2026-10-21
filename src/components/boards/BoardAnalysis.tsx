@@ -29,6 +29,7 @@ import {
 import { keyMapAtom } from "@/state/keybinds";
 import { defaultPGN } from "@/utils/chess";
 import { isDesktop } from "@/utils/platform";
+import { useIsMobilePortrait } from "@/utils/useIsLandscape";
 import { getTabFile, saveToFile } from "@/utils/tabs";
 import DetachedEval from "../common/DetachedEval";
 import GameNotation from "../common/GameNotation";
@@ -38,6 +39,7 @@ import AnalysisPanel from "../panels/analysis/AnalysisPanel";
 import AnnotationPanel from "../panels/annotation/AnnotationPanel";
 import DatabasePanel from "../panels/database/DatabasePanel";
 import InfoPanel from "../panels/info/InfoPanel";
+import MobileInfoPanel from "../panels/info/MobileInfoPanel";
 import PracticePanel from "../panels/practice/PracticePanel";
 import Board from "./Board";
 import BoardControls from "./BoardControls";
@@ -52,6 +54,9 @@ function BoardAnalysis() {
   // The phone shell gives the move list, the engine line and the actions their
   // own regions instead of the notation column (see MobileBoardLayout).
   const mobile = !isDesktop();
+  // Portrait-only re-layouts (the Info deck) switch on this; games keep the
+  // upstream deck in landscape where the columns actually have room.
+  const mobilePortrait = useIsMobilePortrait();
 
   const [editingMode, toggleEditingMode] = useToggle();
   const [selectedPiece, setSelectedPiece] = useState<Piece | null>(null);
@@ -261,7 +266,13 @@ function BoardAnalysis() {
               </Tabs.Panel>
             )}
             <Tabs.Panel value="info" flex={1} style={{ overflowY: "hidden" }}>
-              <InfoPanel addGame={addGame} />
+              {/* Portrait phones get a stacked info editor; the upstream
+                  multi-column grid is unusable at phone width. */}
+              {mobilePortrait ? (
+                <MobileInfoPanel addGame={addGame} />
+              ) : (
+                <InfoPanel addGame={addGame} />
+              )}
             </Tabs.Panel>
             <Tabs.Panel
               value="database"

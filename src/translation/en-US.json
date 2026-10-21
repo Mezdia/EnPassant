@@ -491,6 +491,7 @@
     "Import.Or": "OR",
     "Import.PGN.ClickToSelect": "Click to select a PGN file.",
     "Import.SaveToCollection": "Save to collection",
+    "Info.Mobile.Details": "Details",
     "Menu.Application.About": "About EnPassant",
     "Menu.Application.Hide": "Hide EnPassant",
     "Menu.Application.Quit": "Quit EnPassant",
