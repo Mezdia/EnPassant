@@ -56,6 +56,7 @@ import {
   gameSameTimeControlAtom,
   tabsAtom,
 } from "@/state/atoms";
+import { currentGameResultAtom } from "@/state/mobileAtoms";
 import { APP_NAME } from "@/utils/branding";
 import { positionFromFen } from "@/utils/chessops";
 import { isDesktop } from "@/utils/platform";
@@ -71,9 +72,9 @@ import Board from "./Board";
 import BoardControls from "./BoardControls";
 import EditingCard from "./EditingCard";
 import { MobileGameSetup } from "./MobileGameSetup";
+import { MobileGameResultCard } from "./MobileGameResultCard";
 import { MobileGameBar } from "./MobileGameBar";
 import { MobileMoveStrip } from "./MobileMoveStrip";
-import { MobileMoveTimes } from "./MobileMoveTimes";
 import { OpponentForm, type OpponentSettings } from "./OpponentForm";
 
 function gameResultToOutcome(result: GameResult): Outcome {
@@ -140,6 +141,10 @@ function BoardGame() {
   const boardRef = useRef(null);
   const cgRef = useRef<ChessgroundRef>(null);
   const [gameState, setGameState] = useAtom(currentGameStateAtom);
+  // The end reason is not part of GameHeaders, so the phone's result card
+  // gets it through this fork-only atom, fed by the same two places that
+  // record the outcome. Desktop ignores it.
+  const [, setGameResult] = useAtom(currentGameResultAtom);
   // The phone menu's premove switch; defaults on, so desktop play is unchanged.
   const premovesEnabled = useAtomValue(gamePremovesEnabledAtom);
   const [players, setPlayers] = useAtom(currentPlayersAtom);
@@ -500,6 +505,7 @@ function BoardGame() {
 
       setGameState("gameOver");
       setResult(gameResultToOutcome(payload.result));
+      setGameResult(payload.result);
     });
 
     return () => {
@@ -511,7 +517,7 @@ function BoardGame() {
       unlistenClock.then((f) => f());
       unlistenGameOver.then((f) => f());
     };
-  }, [gameId, gameState, scheduleUpdate, setGameState, setResult]);
+  }, [gameId, gameState, scheduleUpdate, setGameState, setResult, setGameResult]);
 
   useEffect(() => {
     if (gameState === "playing" && gameId) {
@@ -528,12 +534,13 @@ function BoardGame() {
             setGameState("gameOver");
             if (typeof state.status === "object" && "finished" in state.status) {
               setResult(gameResultToOutcome(state.status.finished.result));
+              setGameResult(state.status.finished.result);
             }
           }
         }
       });
     }
-  }, [gameId, gameState, setGameState, setResult]);
+  }, [gameId, gameState, setGameState, setResult, setGameResult]);
 
   const movable = useMemo(() => {
     if (players.white.type === "human" && players.black.type === "human") {
@@ -565,6 +572,8 @@ function BoardGame() {
     await commands.abortGame(gameId);
     setGameState("gameOver");
     setResult("*");
+    // An aborted game has no winner; the card falls back to "Game over".
+    setGameResult(null);
   }
 
   async function handleResign() {
@@ -578,6 +587,7 @@ function BoardGame() {
     setGameState("settingUp");
     setWhiteTime(null);
     setBlackTime(null);
+    setGameResult(null);
     resetTree();
   }
 
@@ -615,8 +625,8 @@ function BoardGame() {
         />
       </Portal>
       <Portal target="#topRight" style={{ height: "100%", overflow: "hidden" }}>
-        <Paper withBorder shadow="sm" p="md" h="100%">
-          {logsOpened ? (
+        {logsOpened ? (
+          <Paper withBorder shadow="sm" p="md" h="100%">
             <EngineLogsView
               logs={engineLogs}
               onRefresh={fetchEngineLogs}
@@ -640,161 +650,167 @@ function BoardGame() {
                 </>
               }
             />
-          ) : (
-            <>
-              {gameState === "settingUp" && !isDesktop() && (
-                <MobileGameSetup onStart={startGame} disabled={error !== null} />
-              )}
-              {gameState === "settingUp" && isDesktop() && (
-                <Stack h="100%" gap={0}>
-                  <ScrollArea style={{ flex: 1 }} offsetScrollbars>
-                    <Stack>
-                      <Group>
-                        <Text flex={1} ta="center" fz="lg" fw="bold">
-                          {match(inputColor)
-                            .with("white", () => "White")
-                            .with("random", () => "Random")
-                            .with("black", () => "Black")
-                            .exhaustive()}
-                        </Text>
-                        <ActionIcon onClick={cycleColor}>
-                          <IconArrowsExchange />
-                        </ActionIcon>
-                        <Text flex={1} ta="center" fz="lg" fw="bold">
-                          {match(inputColor)
-                            .with("white", () => "Black")
-                            .with("random", () => "Random")
-                            .with("black", () => "White")
-                            .exhaustive()}
-                        </Text>
+          </Paper>
+        ) : gameState === "settingUp" ? (
+          <Paper withBorder shadow="sm" p="md" h="100%">
+            {!isDesktop() && <MobileGameSetup onStart={startGame} disabled={error !== null} />}
+            {isDesktop() && (
+              <Stack h="100%" gap={0}>
+                <ScrollArea style={{ flex: 1 }} offsetScrollbars>
+                  <Stack>
+                    <Group>
+                      <Text flex={1} ta="center" fz="lg" fw="bold">
+                        {match(inputColor)
+                          .with("white", () => "White")
+                          .with("random", () => "Random")
+                          .with("black", () => "Black")
+                          .exhaustive()}
+                      </Text>
+                      <ActionIcon onClick={cycleColor}>
+                        <IconArrowsExchange />
+                      </ActionIcon>
+                      <Text flex={1} ta="center" fz="lg" fw="bold">
+                        {match(inputColor)
+                          .with("white", () => "Black")
+                          .with("random", () => "Random")
+                          .with("black", () => "White")
+                          .exhaustive()}
+                      </Text>
+                    </Group>
+                    <Box flex={1}>
+                      <Group style={{ alignItems: "start" }}>
+                        <OpponentForm
+                          sameTimeControl={sameTimeControl}
+                          opponent={player1Settings}
+                          setOpponent={setPlayer1Settings}
+                          setOtherOpponent={setPlayer2Settings}
+                        />
+                        <Divider orientation="vertical" />
+                        <OpponentForm
+                          sameTimeControl={sameTimeControl}
+                          opponent={player2Settings}
+                          setOpponent={setPlayer2Settings}
+                          setOtherOpponent={setPlayer1Settings}
+                        />
                       </Group>
-                      <Box flex={1}>
-                        <Group style={{ alignItems: "start" }}>
-                          <OpponentForm
-                            sameTimeControl={sameTimeControl}
-                            opponent={player1Settings}
-                            setOpponent={setPlayer1Settings}
-                            setOtherOpponent={setPlayer2Settings}
-                          />
-                          <Divider orientation="vertical" />
-                          <OpponentForm
-                            sameTimeControl={sameTimeControl}
-                            opponent={player2Settings}
-                            setOpponent={setPlayer2Settings}
-                            setOtherOpponent={setPlayer1Settings}
-                          />
-                        </Group>
-                      </Box>
+                    </Box>
 
-                      <Paper withBorder p="sm">
-                        <Stack>
-                          <Checkbox
-                            label={t("Board.Opponent.SameTimeControl")}
-                            checked={sameTimeControl}
-                            onChange={(e) => {
-                              const checked = e.target.checked;
-                              setSameTimeControl(checked);
-                              if (checked) {
-                                setPlayer2Settings((prev) => ({
-                                  ...prev,
-                                  timeControl: player1Settings.timeControl,
-                                  timeUnit: player1Settings.timeUnit,
-                                  incrementUnit: player1Settings.incrementUnit,
-                                }));
-                              }
-                            }}
-                          />
+                    <Paper withBorder p="sm">
+                      <Stack>
+                        <Checkbox
+                          label={t("Board.Opponent.SameTimeControl")}
+                          checked={sameTimeControl}
+                          onChange={(e) => {
+                            const checked = e.target.checked;
+                            setSameTimeControl(checked);
+                            if (checked) {
+                              setPlayer2Settings((prev) => ({
+                                ...prev,
+                                timeControl: player1Settings.timeControl,
+                                timeUnit: player1Settings.timeUnit,
+                                incrementUnit: player1Settings.incrementUnit,
+                              }));
+                            }
+                          }}
+                        />
 
-                          <Divider variant="dashed" />
+                        <Divider variant="dashed" />
 
-                          <Checkbox
-                            label={t("Board.Opponent.EnableOpeningBook")}
-                            checked={openingBookEnabled}
-                            onChange={(e) => setOpeningBookEnabled(e.currentTarget.checked)}
-                          />
+                        <Checkbox
+                          label={t("Board.Opponent.EnableOpeningBook")}
+                          checked={openingBookEnabled}
+                          onChange={(e) => setOpeningBookEnabled(e.currentTarget.checked)}
+                        />
 
-                          {openingBookEnabled && (
-                            <>
-                              <FileInput
-                                label="Opening book (.pgn/.epd/.bin/.zip)"
-                                description={t("Import.PGN.ClickToSelect")}
-                                filename={openingBookPath}
-                                onClick={handleSelectOpeningBook}
+                        {openingBookEnabled && (
+                          <>
+                            <FileInput
+                              label="Opening book (.pgn/.epd/.bin/.zip)"
+                              description={t("Import.PGN.ClickToSelect")}
+                              filename={openingBookPath}
+                              onClick={handleSelectOpeningBook}
+                            />
+                            {openingBookPath?.includes(".bin") && (
+                              <NumberInput
+                                label="Polyglot max plies"
+                                description="Maximum number of plies from the starting position that the opening book will be used for."
+                                min={1}
+                                value={openingBookMaxPly}
+                                onChange={(value) => {
+                                  if (typeof value === "number" && Number.isFinite(value)) {
+                                    setOpeningBookMaxPly(Math.max(1, Math.trunc(value)));
+                                  }
+                                }}
                               />
-                              {openingBookPath?.includes(".bin") && (
-                                <NumberInput
-                                  label="Polyglot max plies"
-                                  description="Maximum number of plies from the starting position that the opening book will be used for."
-                                  min={1}
-                                  value={openingBookMaxPly}
-                                  onChange={(value) => {
-                                    if (typeof value === "number" && Number.isFinite(value)) {
-                                      setOpeningBookMaxPly(Math.max(1, Math.trunc(value)));
-                                    }
-                                  }}
-                                />
-                              )}
-                            </>
-                          )}
-                        </Stack>
-                      </Paper>
-                    </Stack>
-                  </ScrollArea>
+                            )}
+                          </>
+                        )}
+                      </Stack>
+                    </Paper>
+                  </Stack>
+                </ScrollArea>
 
-                  <Divider pb="sm" />
-                  <Button onClick={startGame} fullWidth variant="light" disabled={error !== null}>
-                    {t("Board.Opponent.StartGame")}
+                <Divider pb="sm" />
+                <Button onClick={startGame} fullWidth variant="light" disabled={error !== null}>
+                  {t("Board.Opponent.StartGame")}
+                </Button>
+              </Stack>
+            )}
+          </Paper>
+        ) : !isDesktop() && gameState === "playing" ? (
+          // The live phone panel: the move list fills the region so browsing
+          // the game keeps working, and the header editor plus the rare
+          // actions moved to the menu sheet instead of duplicating the bar.
+          // GameNotation brings its own bordered Paper, so it sits in a plain
+          // flex box cell rather than a second card.
+          <Box h="100%" style={{ display: "flex" }}>
+            <GameNotation topBar />
+          </Box>
+        ) : !isDesktop() && gameState === "gameOver" ? (
+          <MobileGameResultCard />
+        ) : (
+          <Paper withBorder shadow="sm" p="md" h="100%">
+            <Stack h="100%">
+              <Box flex={1}>
+                <GameInfo headers={headers} />
+              </Box>
+              <Group grow>
+                {gameState === "playing" && (
+                  <Button
+                    variant="default"
+                    color="red"
+                    onClick={isEngineVsEngine ? handleAbort : handleResign}
+                    leftSection={<IconX />}
+                  >
+                    {isEngineVsEngine ? "Abort" : "Resign"}
                   </Button>
-                </Stack>
-              )}
-              {(gameState === "playing" || gameState === "gameOver") && (
-                <Stack h="100%">
-                  <Box flex={1}>
-                    <GameInfo headers={headers} />
-                  </Box>
-                  {/* Phones have no post-game stats surface; the reference app
-                      shows move times after the game ends. Desktop keeps its
-                      own report flow untouched. */}
-                  {!isDesktop() && gameState === "gameOver" && <MobileMoveTimes />}
-                  <Group grow>
-                    {gameState === "playing" && (
-                      <Button
-                        variant="default"
-                        color="red"
-                        onClick={isEngineVsEngine ? handleAbort : handleResign}
-                        leftSection={<IconX />}
-                      >
-                        {isEngineVsEngine ? "Abort" : "Resign"}
-                      </Button>
-                    )}
-                    {gameState === "gameOver" && (
-                      <Button variant="default" onClick={handleNewGame} leftSection={<IconPlus />}>
-                        New Game
-                      </Button>
-                    )}
-                    <Button
-                      variant="default"
-                      onClick={() => changeToAnalysisMode()}
-                      leftSection={<IconZoomCheck />}
-                    >
-                      Analyze
-                    </Button>
+                )}
+                {gameState === "gameOver" && (
+                  <Button variant="default" onClick={handleNewGame} leftSection={<IconPlus />}>
+                    New Game
+                  </Button>
+                )}
+                <Button
+                  variant="default"
+                  onClick={() => changeToAnalysisMode()}
+                  leftSection={<IconZoomCheck />}
+                >
+                  Analyze
+                </Button>
 
-                    {hasEngine && (
-                      <Button
-                        variant="default"
-                        onClick={() => toggleLogsOpened()}
-                        leftSection={<IconFileText size="1rem" />}
-                      >
-                        Engine Logs
-                      </Button>
-                    )}
-                  </Group>
-                </Stack>
-              )}
-            </>
-          )}
-        </Paper>
+                {hasEngine && (
+                  <Button
+                    variant="default"
+                    onClick={() => toggleLogsOpened()}
+                    leftSection={<IconFileText size="1rem" />}
+                  >
+                    Engine Logs
+                  </Button>
+                )}
+              </Group>
+            </Stack>
+          </Paper>
+        )}
       </Portal>
       <Portal target="#bottomRight" style={{ height: "100%" }}>
         {gameState === "settingUp" && editingMode ? (
@@ -843,6 +859,7 @@ function BoardGame() {
               onNewGame={handleNewGame}
               onAnalyze={() => changeToAnalysisMode()}
               onTakeBack={onTakeBack}
+              onToggleLogs={hasEngine ? toggleLogsOpened : undefined}
               editingMode={gameState === "settingUp" && editingMode}
               toggleEditingMode={toggleEditingMode}
             />

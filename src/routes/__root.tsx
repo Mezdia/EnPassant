@@ -1,6 +1,11 @@
 import { AppShell } from "@mantine/core";
 import { notifications } from "@mantine/notifications";
-import { createRootRouteWithContext, Outlet, useNavigate } from "@tanstack/react-router";
+import {
+  createRootRouteWithContext,
+  Outlet,
+  useMatchRoute,
+  useNavigate,
+} from "@tanstack/react-router";
 import { TauriEvent } from "@tauri-apps/api/event";
 import { Menu, MenuItem, PredefinedMenuItem, Submenu } from "@tauri-apps/api/menu";
 import { appLogDir, resolve } from "@tauri-apps/api/path";
@@ -21,7 +26,7 @@ import AboutModal from "@/components/About";
 import { BottomTabBar } from "@/components/BottomTabBar";
 import { SideBar } from "@/components/Sidebar";
 import TopBar from "@/components/TopBar";
-import { activeTabAtom, nativeBarAtom, tabsAtom } from "@/state/atoms";
+import { activeTabAtom, currentTabAtom, nativeBarAtom, tabsAtom } from "@/state/atoms";
 import { keyMapAtom } from "@/state/keybinds";
 import { APP_DOCS_URL } from "@/utils/branding";
 import { openFile } from "@/utils/files";
@@ -94,6 +99,7 @@ function RootLayout() {
 
   const [, setTabs] = useAtom(tabsAtom);
   const [, setActiveTab] = useAtom(activeTabAtom);
+  const currentTab = useAtomValue(currentTabAtom);
 
   const { t } = useTranslation();
 
@@ -150,6 +156,17 @@ function RootLayout() {
 
   const isMacOS = platform() === "macos";
   const mobile = !isDesktop();
+
+  // Analysis, Puzzle and Play own the whole phone viewport: each one closes the
+  // screen with its own action bar (the analysis bar, the puzzle bar, the game
+  // bar), and a second bar underneath only steals a row of height from the
+  // board. Every other screen keeps the tab bar.
+  const matchRoute = useMatchRoute();
+  const immersiveTab =
+    matchRoute({ to: "/" }) !== false &&
+    (currentTab?.type === "analysis" ||
+      currentTab?.type === "puzzles" ||
+      currentTab?.type === "play");
 
   const aboutOption = {
     label: t("Menu.Help.About"),
@@ -372,10 +389,16 @@ function RootLayout() {
     // page (Home's Recent Files, for one) ended up underneath it.
     return (
       <AppShell
-        footer={{ height: "calc(3.5rem + env(safe-area-inset-bottom, 0px))" }}
+        footer={
+          immersiveTab ? undefined : { height: "calc(3.5rem + env(safe-area-inset-bottom, 0px))" }
+        }
         styles={{
           main: {
-            height: "calc(100dvh - 3.5rem - env(safe-area-inset-bottom, 0px))",
+            // An immersive screen ends at the gesture bar: its own bottom bar
+            // already carries the safe-area inset.
+            height: immersiveTab
+              ? "100dvh"
+              : "calc(100dvh - 3.5rem - env(safe-area-inset-bottom, 0px))",
             // AppShell.Main ships its own min-height: 100dvh, which would
             // otherwise override the height above and keep the content running
             // under the fixed tab bar.
@@ -390,9 +413,11 @@ function RootLayout() {
         <AppShell.Main>
           <Outlet />
         </AppShell.Main>
-        <AppShell.Footer>
-          <BottomTabBar />
-        </AppShell.Footer>
+        {!immersiveTab && (
+          <AppShell.Footer>
+            <BottomTabBar />
+          </AppShell.Footer>
+        )}
       </AppShell>
     );
   }

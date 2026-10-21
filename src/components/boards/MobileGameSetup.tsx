@@ -4,21 +4,20 @@ import {
   Button,
   Center,
   Checkbox,
-  Divider,
+  Chip,
   Group,
   InputWrapper,
   Paper,
   ScrollArea,
   SegmentedControl,
   Stack,
-  Stepper,
   Text,
   TextInput,
 } from "@mantine/core";
 import { IconArrowLeft, IconCpu, IconInfoCircle, IconUser } from "@tabler/icons-react";
 import type { TFunction } from "i18next";
 import { useAtom, useAtomValue } from "jotai";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef } from "react";
 import { useTranslation } from "react-i18next";
 import GoModeInput from "@/components/common/GoModeInput";
 import TimeInput from "@/components/common/TimeInput";
@@ -40,33 +39,40 @@ import { DEFAULT_TIME_CONTROL, type OpponentSettings } from "./OpponentForm";
  * Mobile replacement for the desktop two-column `OpponentForm` setup screen.
  *
  * The desktop form puts both players, both time controls and the opening-book
- * options on one dense page. On a phone that is several screens of scrolling,
- * so this splits it into a three step wizard — sides → time control → confirm —
- * writing to the exact same atoms, which means `BoardGame.startGame` needs no
- * changes.
+ * options on one dense page. On a phone that page collapses to a single
+ * scrollable form, presented in the order the reference app's new-game sheet
+ * uses: side first, then quick time presets, then the players. It writes to
+ * the exact same atoms, so `BoardGame.startGame` needs no changes.
  */
 
-const STEP_COUNT = 3;
+/** The quick-pairing presets, phrased like the reference app's pools. */
+const TIME_PRESETS = [
+  { minutes: 1, increment: 0, label: "1+0" },
+  { minutes: 3, increment: 0, label: "3+0" },
+  { minutes: 3, increment: 2, label: "3+2" },
+  { minutes: 5, increment: 0, label: "5+0" },
+  { minutes: 5, increment: 3, label: "5+3" },
+  { minutes: 10, increment: 0, label: "10+0" },
+  { minutes: 10, increment: 5, label: "10+5" },
+  { minutes: 15, increment: 10, label: "15+10" },
+  { minutes: 30, increment: 20, label: "30+20" },
+] as const;
 
 export function MobileGameSetup({ onStart, disabled }: { onStart: () => void; disabled: boolean }) {
   const { t } = useTranslation();
-  const [step, setStep] = useState(0);
 
   const [inputColor, setInputColor] = useAtom(gameInputColorAtom);
   const [player1, setPlayer1] = useAtom(gamePlayer1SettingsAtom);
   const [player2, setPlayer2] = useAtom(gamePlayer2SettingsAtom);
   const [sameTimeControl, setSameTimeControl] = useAtom(gameSameTimeControlAtom);
 
-  const next = () => setStep((s) => Math.min(STEP_COUNT - 1, s + 1));
-  const back = () => setStep((s) => Math.max(0, s - 1));
-
   const [tabs, setTabs] = useAtom(tabsAtom);
   const [activeTab, setActiveTab] = useAtom(activeTabAtom);
 
-  /** Step 0 has no earlier step to return to, so leaving the wizard closes the
-   *  board tab it was opened in; BoardsPage recreates a home tab once none are
-   *  left. A tab still in setup never started an engine or a game, so unlike
-   *  BoardsPage.closeTab there is nothing to tear down here. */
+  /** Leaving the page closes the board tab it was opened in; BoardsPage
+   *  recreates a home tab once none are left. A tab still in setup never
+   *  started an engine or a game, so unlike BoardsPage.closeTab there is
+   *  nothing to tear down here. */
   const cancel = useCallback(() => {
     const index = tabs.findIndex((tab) => tab.value === activeTab);
     setActiveTab(
@@ -75,147 +81,132 @@ export function MobileGameSetup({ onStart, disabled }: { onStart: () => void; di
     setTabs((prev) => prev.filter((tab) => tab.value !== activeTab));
   }, [tabs, activeTab, setActiveTab, setTabs]);
 
-  const goBack = useCallback(() => {
-    if (step > 0) back();
-    else cancel();
-  }, [step, cancel]);
-
-  // Android's system back button reaches the WebView as window.history, and the
-  // wizard step is plain state, so claim a history entry while the wizard is on
-  // screen and walk it back down. Spreading history.state keeps the router's
-  // own entry state intact.
-  const stepRef = useRef(step);
-  stepRef.current = step;
-  const goBackRef = useRef(goBack);
-  goBackRef.current = goBack;
+  // Android's system back button reaches the WebView as window.history, and
+  // this page is plain state, so claim a history entry while it is on screen
+  // and use the pop to leave. Spreading history.state keeps the router's own
+  // entry state intact.
+  const cancelRef = useRef(cancel);
+  cancelRef.current = cancel;
   useEffect(() => {
     history.pushState({ ...history.state, enpassantWizard: true }, "");
-    const onPop = () => {
-      goBackRef.current();
-      if (stepRef.current > 0) {
-        history.pushState({ ...history.state, enpassantWizard: true }, "");
-      }
-    };
+    const onPop = () => cancelRef.current();
     window.addEventListener("popstate", onPop);
     return () => window.removeEventListener("popstate", onPop);
   }, []);
 
+  // Selecting a preset is a quick pairing: both players get the same control,
+  // like the reference app's pools.
+  const applyPreset = (preset: (typeof TIME_PRESETS)[number]) => {
+    const timeControl = {
+      seconds: preset.minutes * 60_000,
+      increment: preset.increment * 1000,
+    };
+    setSameTimeControl(true);
+    setPlayer1((prev) => ({ ...prev, timeControl, timeUnit: "m", incrementUnit: "s" as const }));
+    setPlayer2((prev) => ({ ...prev, timeControl, timeUnit: "m", incrementUnit: "s" as const }));
+  };
+
   return (
-    <Stack h="100%" gap="xs">
+    <Stack h="100%" gap="sm">
       <Group gap="xs" wrap="nowrap" align="center">
-        <ActionIcon variant="subtle" onClick={goBack} aria-label={t("Common.Back")}>
+        <ActionIcon variant="subtle" onClick={cancel} aria-label={t("Common.Back")}>
           <IconArrowLeft size={18} />
         </ActionIcon>
-        <Stepper style={{ flex: 1 }} active={step} onStepClick={setStep} size="sm" iconSize={28}>
-          <Stepper.Step label={t("Board.Opponent.Players")} />
-          <Stepper.Step label={t("Board.Opponent.TimeSettings")} />
-          <Stepper.Step label={t("Board.Opponent.Confirm")} />
-        </Stepper>
+        <Text fz="lg" fw={700}>
+          {t("Board.Mobile.NewGame")}
+        </Text>
       </Group>
 
       <ScrollArea style={{ flex: 1 }} offsetScrollbars>
-        {step === 0 && (
-          <Stack>
-            <InputWrapper label={t("Board.Opponent.YouPlay")}>
-              <SegmentedControl
-                fullWidth
-                data={[
-                  { value: "white", label: t("Fen.White") },
-                  { value: "random", label: t("Board.Opponent.Random") },
-                  { value: "black", label: t("Fen.Black") },
-                ]}
-                value={inputColor}
-                onChange={(v) => setInputColor(v as "white" | "black" | "random")}
-              />
-            </InputWrapper>
-
-            <PlayerCard
-              title={playerLabel(t, inputColor, 1)}
-              opponent={player1}
-              setOpponent={setPlayer1}
+        <Stack gap="sm">
+          <InputWrapper label={t("Board.Opponent.YouPlay")}>
+            <SegmentedControl
+              fullWidth
+              data={[
+                { value: "white", label: t("Fen.White") },
+                { value: "random", label: t("Board.Opponent.Random") },
+                { value: "black", label: t("Fen.Black") },
+              ]}
+              value={inputColor}
+              onChange={(v) => setInputColor(v as "white" | "black" | "random")}
             />
-            <PlayerCard
+          </InputWrapper>
+
+          <div>
+            <Text fz="sm" fw={500} mb={4}>
+              {t("Board.Mobile.QuickPairing")}
+            </Text>
+            <Group gap="xs" wrap="wrap">
+              {TIME_PRESETS.map((preset) => {
+                const active =
+                  sameTimeControl &&
+                  player1.timeControl?.seconds === preset.minutes * 60_000 &&
+                  player1.timeControl?.increment === preset.increment * 1000;
+                return (
+                  <Chip
+                    key={preset.label}
+                    checked={active}
+                    onChange={(checked) => checked && applyPreset(preset)}
+                  >
+                    {preset.label}
+                  </Chip>
+                );
+              })}
+            </Group>
+          </div>
+
+          <PlayerCard
+            title={playerLabel(t, inputColor, 1)}
+            opponent={player1}
+            setOpponent={setPlayer1}
+          />
+          <PlayerCard
+            title={playerLabel(t, inputColor, 2)}
+            opponent={player2}
+            setOpponent={setPlayer2}
+          />
+
+          <Checkbox
+            label={t("Board.Opponent.SameTimeControl")}
+            checked={sameTimeControl}
+            onChange={(e) => {
+              const checked = e.currentTarget.checked;
+              setSameTimeControl(checked);
+              if (checked) {
+                setPlayer2((prev) => ({
+                  ...prev,
+                  timeControl: player1.timeControl,
+                  timeUnit: player1.timeUnit,
+                  incrementUnit: player1.incrementUnit,
+                }));
+              }
+            }}
+          />
+
+          <TimeControlCard
+            title={
+              sameTimeControl ? t("Board.Opponent.TimeSettings") : playerLabel(t, inputColor, 1)
+            }
+            opponent={player1}
+            setOpponent={setPlayer1}
+            setOtherOpponent={setPlayer2}
+            mirror={sameTimeControl}
+          />
+          {!sameTimeControl && (
+            <TimeControlCard
               title={playerLabel(t, inputColor, 2)}
               opponent={player2}
               setOpponent={setPlayer2}
+              setOtherOpponent={setPlayer1}
+              mirror={false}
             />
-          </Stack>
-        )}
-
-        {step === 1 && (
-          <Stack>
-            <Checkbox
-              label={t("Board.Opponent.SameTimeControl")}
-              checked={sameTimeControl}
-              onChange={(e) => {
-                const checked = e.currentTarget.checked;
-                setSameTimeControl(checked);
-                if (checked) {
-                  setPlayer2((prev) => ({
-                    ...prev,
-                    timeControl: player1.timeControl,
-                    timeUnit: player1.timeUnit,
-                    incrementUnit: player1.incrementUnit,
-                  }));
-                }
-              }}
-            />
-
-            <TimeControlCard
-              title={
-                sameTimeControl ? t("Board.Opponent.TimeSettings") : playerLabel(t, inputColor, 1)
-              }
-              opponent={player1}
-              setOpponent={setPlayer1}
-              setOtherOpponent={setPlayer2}
-              mirror={sameTimeControl}
-            />
-            {!sameTimeControl && (
-              <TimeControlCard
-                title={playerLabel(t, inputColor, 2)}
-                opponent={player2}
-                setOpponent={setPlayer2}
-                setOtherOpponent={setPlayer1}
-                mirror={false}
-              />
-            )}
-          </Stack>
-        )}
-
-        {step === 2 && (
-          <Stack>
-            <Paper withBorder p="sm">
-              <Stack gap="xs">
-                <SummaryRow
-                  label={playerLabel(t, inputColor, 1)}
-                  value={describePlayer(t, player1)}
-                />
-                <SummaryRow
-                  label={playerLabel(t, inputColor, 2)}
-                  value={describePlayer(t, player2)}
-                />
-                <Divider variant="dashed" />
-                <SummaryRow
-                  label={t("Board.Opponent.TimeSettings")}
-                  value={describeTimeControls(t, player1, player2, sameTimeControl)}
-                />
-              </Stack>
-            </Paper>
-            <Button onClick={onStart} fullWidth variant="light" disabled={disabled}>
-              {t("Board.Opponent.StartGame")}
-            </Button>
-          </Stack>
-        )}
+          )}
+        </Stack>
       </ScrollArea>
 
-      <Group grow>
-        <Button variant="default" onClick={goBack}>
-          {step === 0 ? t("Common.Cancel") : t("Board.Opponent.Back")}
-        </Button>
-        <Button variant="default" onClick={next} disabled={step === STEP_COUNT - 1}>
-          {t("Board.Opponent.Next")}
-        </Button>
-      </Group>
+      <Button size="lg" onClick={onStart} disabled={disabled} fullWidth>
+        {t("Board.Opponent.StartGame")}
+      </Button>
     </Stack>
   );
 }
@@ -231,49 +222,6 @@ function playerLabel(
   }
   const isWhite = inputColor === "white" ? player === 1 : player === 2;
   return isWhite ? t("Fen.White") : t("Fen.Black");
-}
-
-function describePlayer(t: TFunction, opponent: OpponentSettings): string {
-  if (opponent.type === "human") {
-    return opponent.name || t("Board.Opponent.Human");
-  }
-  return opponent.engine?.name ?? t("Common.Engine");
-}
-
-function formatTimeControl(t: TFunction, opponent: OpponentSettings): string {
-  if (!opponent.timeControl) return t("Board.Opponent.Unlimited");
-  const minutes = opponent.timeControl.seconds / 60_000;
-  const increment = (opponent.timeControl.increment ?? 0) / 1000;
-  return `${trimNumber(minutes)}+${trimNumber(increment)}`;
-}
-
-function describeTimeControls(
-  t: TFunction,
-  player1: OpponentSettings,
-  player2: OpponentSettings,
-  sameTimeControl: boolean,
-): string {
-  const first = formatTimeControl(t, player1);
-  if (sameTimeControl) return first;
-  const second = formatTimeControl(t, player2);
-  return first === second ? first : `${first} / ${second}`;
-}
-
-function trimNumber(value: number): string {
-  return Number.isInteger(value) ? String(value) : value.toFixed(1);
-}
-
-function SummaryRow({ label, value }: { label: string; value: string }) {
-  return (
-    <Group justify="space-between" wrap="nowrap" gap="sm">
-      <Text c="dimmed" fz="sm">
-        {label}
-      </Text>
-      <Text fz="sm" fw="bold" ta="right" style={{ wordBreak: "break-word" }}>
-        {value}
-      </Text>
-    </Group>
-  );
 }
 
 function PlayerCard({

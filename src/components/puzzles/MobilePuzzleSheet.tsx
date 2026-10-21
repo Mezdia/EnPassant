@@ -1,11 +1,8 @@
 import {
-  ActionIcon,
   Alert,
-  Badge,
   Button,
-  Drawer,
+  Divider,
   Group,
-  Menu,
   RangeSlider,
   ScrollArea,
   Select,
@@ -14,16 +11,8 @@ import {
   Switch,
   Text,
 } from "@mantine/core";
-import {
-  IconAlertTriangle,
-  IconDotsVertical,
-  IconFilter,
-  IconFlame,
-  IconTrash,
-  IconX,
-  IconZoomCheck,
-} from "@tabler/icons-react";
-import { useAtom, useSetAtom } from "jotai";
+import { IconAlertTriangle, IconFlame, IconTrash, IconX } from "@tabler/icons-react";
+import { useAtom } from "jotai";
 import { useTranslation } from "react-i18next";
 import type { PuzzleDatabaseInfo } from "@/bindings";
 import {
@@ -37,18 +26,12 @@ import {
   trackPuzzleTimeAtom,
 } from "@/state/atoms";
 import { formatThemeLabel } from "@/utils/format";
+import type { Puzzle } from "@/utils/puzzles";
+import { MobilePuzzleHistoryCard } from "./MobilePuzzleHistoryCard";
 
 /**
- * Mobile controls for the Puzzles screen.
- *
- * The desktop panel stacks the database picker, a settings accordion, up to five
- * stat cards, the theme badges and the action buttons into one tall column. On a
- * phone the board is the point, so this splits it in two: a three-line action
- * bar that stays next to the board, and everything configurable behind a
- * Filters sheet.
+ * Pre-formatted stat strings — the masking/rounding rules live in `Puzzles`.
  */
-
-/** Pre-formatted stat strings — the masking/rounding rules live in `Puzzles`. */
 export type PuzzleStatLabels = {
   /** Already masked to "?" when the rating is hidden until solved. */
   rating: string;
@@ -60,168 +43,99 @@ export type PuzzleStatLabels = {
   avgTime: string | null;
 };
 
-export function MobilePuzzleControls({
-  puzzleDbs,
-  availableThemes,
-  themesTableMissing,
-  stats,
-  themes,
-  turnToMove,
-  onAddDatabase,
-  onDeleteDatabase,
-  onNewPuzzle,
-  onAnalyze,
-  onClearSession,
-  onHint,
-  onViewSolution,
-  hintDisabled,
-  solutionDisabled,
-  filtersOpened,
-  setFiltersOpened,
-}: {
+type MobilePuzzleSheetProps = {
   puzzleDbs: PuzzleDatabaseInfo[];
   availableThemes: string[];
   themesTableMissing: boolean;
   stats: PuzzleStatLabels;
-  themes: string[];
-  turnToMove: "white" | "black" | null;
+  puzzles: Puzzle[];
+  currentPuzzle: number;
+  select: (i: number) => void;
   onAddDatabase: () => void;
   onDeleteDatabase: () => void;
-  onNewPuzzle: () => void;
-  onAnalyze: () => void;
   onClearSession: () => void;
-  onHint: () => void;
-  onViewSolution: () => void;
-  hintDisabled: boolean;
-  solutionDisabled: boolean;
-  filtersOpened: boolean;
-  setFiltersOpened: (opened: boolean) => void;
-}) {
+  onClose: () => void;
+};
+
+/**
+ * Content of the phone stats sheet (opened by the bar's stats button). It
+ * groups everything the desktop panel stacks beside the board — session
+ * stats, history, the database picker, filters and the destructive session
+ * actions — so the board-facing UI is only the feedback strip and the bar.
+ */
+export function MobilePuzzleSheet({
+  puzzleDbs,
+  availableThemes,
+  themesTableMissing,
+  stats,
+  puzzles,
+  currentPuzzle,
+  select,
+  onAddDatabase,
+  onDeleteDatabase,
+  onClearSession,
+  onClose,
+}: MobilePuzzleSheetProps) {
   const { t } = useTranslation();
   const [selectedDb, setSelectedDb] = useAtom(selectedPuzzleDbAtom);
 
   return (
-    <Stack gap="xs" p="xs">
-      <Group gap="xs" wrap="nowrap">
-        <Text fz="md" fw={500} style={{ flex: 1, minWidth: 0 }} truncate>
-          {!turnToMove ? "" : turnToMove === "white" ? t("Fen.BlackToMove") : t("Fen.WhiteToMove")}
-        </Text>
-        <PuzzleStats stats={stats} />
-      </Group>
+    <ScrollArea.Autosize mah="70vh" offsetScrollbars>
+      <Stack gap="md" pb="md">
+        <div>
+          <Text fz="xs" c="dimmed" tt="uppercase" fw={700} mb="xs">
+            {t("Puzzle.Mobile.Stats")}
+          </Text>
+          <PuzzleStats stats={stats} />
+        </div>
 
-      {themes.length > 0 && (
-        <Group gap={4}>
-          {themes.map((theme) => (
-            <Badge key={theme} variant="light" size="sm">
-              {formatThemeLabel(theme)}
-            </Badge>
-          ))}
+        <MobilePuzzleHistoryCard puzzles={puzzles} current={currentPuzzle} select={select} />
+
+        <Divider />
+
+        <Select
+          label={t("Puzzle.Database")}
+          data={puzzleDbs
+            .map((p) => ({ label: p.title.split(".db3")[0], value: p.path }))
+            .concat({ label: `+ ${t("Common.AddNew")}`, value: "add" })}
+          value={selectedDb}
+          clearable={false}
+          placeholder={t("Puzzle.SelectDatabase")}
+          onChange={(v) => {
+            if (v === "add") {
+              onClose();
+              onAddDatabase();
+            } else {
+              setSelectedDb(v);
+            }
+          }}
+        />
+
+        <PuzzleFilters availableThemes={availableThemes} themesTableMissing={themesTableMissing} />
+
+        <Divider />
+
+        <Group grow gap="xs">
+          <Button variant="default" leftSection={<IconX size={16} />} onClick={onClearSession}>
+            {t("Puzzle.ClearSession")}
+          </Button>
+          <Button
+            variant="default"
+            color="red"
+            leftSection={<IconTrash size={16} />}
+            disabled={!selectedDb}
+            onClick={onDeleteDatabase}
+          >
+            {t("Puzzle.DeleteDatabase")}
+          </Button>
         </Group>
-      )}
-
-      <Group gap="xs" wrap="nowrap">
-        <Button
-          variant="light"
-          style={{ flex: 1 }}
-          onClick={onHint}
-          disabled={hintDisabled}
-          size="compact-md"
-        >
-          {t("Puzzle.GetAHint")}
-        </Button>
-        <Button
-          variant="light"
-          style={{ flex: 1 }}
-          onClick={onViewSolution}
-          disabled={solutionDisabled}
-          size="compact-md"
-        >
-          {t("Puzzle.ViewSolution")}
-        </Button>
-        <Button style={{ flex: 1 }} onClick={onNewPuzzle} disabled={!selectedDb} size="compact-md">
-          {t("Puzzle.NewPuzzle")}
-        </Button>
-      </Group>
-
-      <Group gap="xs" wrap="nowrap">
-        <Button
-          variant="default"
-          leftSection={<IconFilter size={16} />}
-          style={{ flex: 1 }}
-          onClick={() => setFiltersOpened(true)}
-          size="compact-md"
-        >
-          {t("Puzzle.Filters")}
-        </Button>
-        <Menu position="top-end" withinPortal>
-          <Menu.Target>
-            <ActionIcon variant="default" size="lg" aria-label={t("Common.More")}>
-              <IconDotsVertical size={18} />
-            </ActionIcon>
-          </Menu.Target>
-          <Menu.Dropdown>
-            <Menu.Item
-              leftSection={<IconZoomCheck size={16} />}
-              onClick={onAnalyze}
-              disabled={!selectedDb}
-            >
-              {t("Puzzle.AnalyzePosition")}
-            </Menu.Item>
-            <Menu.Item leftSection={<IconX size={16} />} onClick={onClearSession}>
-              {t("Puzzle.ClearSession")}
-            </Menu.Item>
-            <Menu.Divider />
-            <Menu.Item
-              leftSection={<IconTrash size={16} />}
-              color="red"
-              onClick={onDeleteDatabase}
-              disabled={!selectedDb}
-            >
-              {t("Puzzle.DeleteDatabase")}
-            </Menu.Item>
-          </Menu.Dropdown>
-        </Menu>
-      </Group>
-
-      <Drawer
-        opened={filtersOpened}
-        onClose={() => setFiltersOpened(false)}
-        position="bottom"
-        size="80%"
-        title={t("Puzzle.Filters")}
-      >
-        <ScrollArea.Autosize mah="70vh" offsetScrollbars>
-          <Stack gap="md" pb="md">
-            <Select
-              label={t("Puzzle.Database")}
-              data={puzzleDbs
-                .map((p) => ({ label: p.title.split(".db3")[0], value: p.path }))
-                .concat({ label: `+ ${t("Common.AddNew")}`, value: "add" })}
-              value={selectedDb}
-              clearable={false}
-              placeholder={t("Puzzle.SelectDatabase")}
-              onChange={(v) => {
-                if (v === "add") {
-                  setFiltersOpened(false);
-                  onAddDatabase();
-                } else {
-                  setSelectedDb(v);
-                }
-              }}
-            />
-            <PuzzleFilters
-              availableThemes={availableThemes}
-              themesTableMissing={themesTableMissing}
-            />
-          </Stack>
-        </ScrollArea.Autosize>
-      </Drawer>
-    </Stack>
+      </Stack>
+    </ScrollArea.Autosize>
   );
 }
 
 /** Rating · accuracy · streak (+ time when tracked) as a single compact row. */
-function PuzzleStats({ stats }: { stats: PuzzleStatLabels }) {
+export function PuzzleStats({ stats }: { stats: PuzzleStatLabels }) {
   const { t } = useTranslation();
 
   return (
@@ -268,8 +182,8 @@ function Stat({
 /**
  * Rating range, theme and the four session switches.
  *
- * Shared by the portrait Filters sheet and the landscape column, so both stay in
- * step — they write straight to the same atoms the desktop panel uses.
+ * Shared with the landscape column in future, writing straight to the same
+ * atoms the desktop panel uses. Ported from the old filters sheet.
  */
 function PuzzleFilters({
   availableThemes,
@@ -285,7 +199,7 @@ function PuzzleFilters({
   const [hideRating, setHideRating] = useAtom(hidePuzzleRatingAtom);
   const [jumpToNext, setJumpToNext] = useAtom(jumpToNextPuzzleAtom);
   const [trackTime, setTrackTime] = useAtom(trackPuzzleTimeAtom);
-  const setTimerStart = useSetAtom(currentPuzzleTimerAtom);
+  const setTimerStart = useAtom(currentPuzzleTimerAtom)[1];
 
   const effectiveSelectedTheme =
     selectedTheme && availableThemes.includes(selectedTheme) ? selectedTheme : null;

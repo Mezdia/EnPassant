@@ -1,5 +1,6 @@
 import { handleFixtureRequest, type FixtureResponse } from "@/demo/fixtures/http";
 import { DEMO_GAME_PGN, SECOND_DEMO_GAME_PGN, THIRD_DEMO_GAME_PGN } from "@/demo/fixtures/game";
+import type { GameConfig, GameStatus, GameState } from "@/bindings";
 
 /**
  * A browser-side mock of the Tauri v2 runtime (window.__TAURI_INTERNALS__).
@@ -242,6 +243,49 @@ function handleHttpFetch(clientConfig: {
 
 function err(message: string) {
     return { status: "error" as const, error: message };
+}
+
+// --- local game sessions (Play screen) ---
+//
+// The real backend owns the clock and move legality. The demo only needs a
+// barebones human-vs-human session so the Play screen is explorable: moves
+// are recorded verbatim — the frontend replays them into its own tree from
+// just the uci — no engine is ever asked to move, and the game runs until it
+// is resigned, aborted, or a new pickup overwrites the session.
+
+type DemoGameSession = {
+    initialFen: string;
+    currentFen: string;
+    moves: GameState["moves"];
+    status: GameStatus;
+    whiteTime: bigint | null;
+    blackTime: bigint | null;
+    whitePlayer: string;
+    blackPlayer: string;
+    turn: string;
+};
+
+const START_FEN = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1";
+const gameSessions = new Map<string, DemoGameSession>();
+
+function demoGameState(session: DemoGameSession, gameId: string): GameState {
+    return {
+        gameId,
+        status: session.status,
+        initialFen: session.initialFen,
+        moves: session.moves,
+        currentFen: session.currentFen,
+        ply: session.moves.length,
+        turn: session.turn,
+        whiteTime: session.whiteTime,
+        blackTime: session.blackTime,
+        whitePlayer: session.whitePlayer,
+        blackPlayer: session.blackPlayer,
+    };
+}
+
+function demoPlayerName(player: GameConfig["white"]): string {
+    return player.name || (player.type === "engine" ? "Engine" : "Player");
 }
 
 const SEEDED_ENGINES = JSON.stringify(
@@ -759,7 +803,107 @@ function invoke(
         case "kill_engine":
         case "stop_engine":
         case "cancel_analysis":
-        case "abort_game":
+        case "abort_game": {
+            // The board already tears down a silently-aborted game; dropping
+            // the session keeps later commands honest.
+            gameSessions.delete(String((payload as { gameId?: string }).gameId ?? ""));
+            return Promise.resolve(null);
+        }
+        case "start_game": {
+            const { gameId, config } = payload as { gameId: string; config: GameConfig };
+            const initialFen = config.initialFen ?? START_FEN;
+            // A tab can seed a game with an existing move list (imports).
+            const seedMoves = config.initialMoves ?? [];
+            const moves: GameState["moves"] = seedMoves.map((uci) => ({
+                uci,
+                san: "",
+                fenAfter: "",
+                clock: null,
+                whiteTime: null,
+                blackTime: null,
+            }));
+            const session: DemoGameSession = {
+                initialFen,
+                currentFen: initialFen,
+                moves,
+                status: "playing",
+                whiteTime: config.whiteTimeControl
+                    ? BigInt(config.whiteTimeControl.initialTime)
+                    : null,
+                blackTime: config.blackTimeControl
+                    ? BigInt(config.blackTimeControl.initialTime)
+                    : null,
+                whitePlayer: demoPlayerName(config.white),
+                blackPlayer: demoPlayerName(config.black),
+                turn: moves.length % 2 === 0 ? "white" : "black",
+            };
+            gameSessions.set(gameId, session);
+            return Promise.resolve(demoGameState(session, gameId));
+        }
+        case "get_game_state": {
+            const gameId = String(payload.gameId);
+            const session = gameSessions.get(gameId);
+            if (!session) throw new Error(`No demo game session for ${gameId}`);
+            return Promise.resolve(demoGameState(session, gameId));
+        }
+        case "make_game_move": {
+            const gameId = String(payload.gameId);
+            const session = gameSessions.get(gameId);
+            if (!session || session.status !== "playing") {
+                throw new Error(`No live demo game session for ${gameId}`);
+            }
+            const move = {
+                uci: String(payload.uci),
+                san: "",
+                fenAfter: "",
+                clock: null,
+                whiteTime: session.whiteTime,
+                blackTime: session.blackTime,
+            };
+            session.moves = [...session.moves, move];
+            session.turn = session.moves.length % 2 === 0 ? "white" : "black";
+            deliverEvent("game-move-event", {
+                gameId,
+                moves: session.moves,
+                fen: session.currentFen,
+                whiteTime: session.whiteTime,
+                blackTime: session.blackTime,
+            });
+            return Promise.resolve(demoGameState(session, gameId));
+        }
+        case "resign_game": {
+            const gameId = String(payload.gameId);
+            const session = gameSessions.get(gameId);
+            if (!session) throw new Error(`No demo game session for ${gameId}`);
+            const result =
+                (payload as { color: string }).color === "white"
+                    ? { type: "blackWins" as const, reason: "resignation" as const }
+                    : { type: "whiteWins" as const, reason: "resignation" as const };
+            session.status = { finished: { result } };
+            deliverEvent("game-over-event", {
+                gameId,
+                result,
+                moves: session.moves,
+            });
+            return Promise.resolve(demoGameState(session, gameId));
+        }
+        case "take_back_game_move": {
+            const gameId = String(payload.gameId);
+            const session = gameSessions.get(gameId);
+            if (!session || session.status !== "playing" || session.moves.length === 0) {
+                throw new Error(`No takeback available for ${gameId}`);
+            }
+            session.moves = session.moves.slice(0, -1);
+            session.turn = session.moves.length % 2 === 0 ? "white" : "black";
+            deliverEvent("game-move-event", {
+                gameId,
+                moves: session.moves,
+                fen: session.currentFen,
+                whiteTime: session.whiteTime,
+                blackTime: session.blackTime,
+            });
+            return Promise.resolve(demoGameState(session, gameId));
+        }
         case "clear_games":
         case "clear_progress":
         case "set_file_as_executable":

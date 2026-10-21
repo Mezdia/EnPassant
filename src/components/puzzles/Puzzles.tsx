@@ -61,8 +61,10 @@ import GameNotation from "../common/GameNotation";
 import MoveControls from "../common/MoveControls";
 import { TreeStateContext } from "../common/TreeStateContext";
 import AddPuzzle from "./AddPuzzle";
-import { MobilePuzzleControls } from "./MobilePuzzleControls";
 import PuzzleBoard from "./PuzzleBoard";
+import { MobilePuzzleBar } from "./MobilePuzzleBar";
+import { MobilePuzzleFeedback } from "./MobilePuzzleFeedback";
+import { MobilePuzzleHistoryCard } from "./MobilePuzzleHistoryCard";
 
 function Puzzles({ id }: { id: string }) {
   const { t } = useTranslation();
@@ -83,8 +85,6 @@ function Puzzles({ id }: { id: string }) {
   const [selectedDb, setSelectedDb] = useAtom(selectedPuzzleDbAtom);
 
   const [settingsOpened, setSettingsOpened] = useState(false);
-  /** Mobile only: the Filters sheet that replaces the desktop settings accordion. */
-  const [filtersOpened, setFiltersOpened] = useState(false);
   const landscape = useIsLandscape();
 
   useEffect(() => {
@@ -388,6 +388,34 @@ function Puzzles({ id }: { id: string }) {
       ? "?"
       : String(puzzles[currentPuzzle]?.rating ?? "-");
 
+  // History selection, shared by the desktop column and the mobile history
+  // card and puzzle steppers. Returns false at out-of-bounds/same-puzzle so
+  // the bar's press-hold repeat can stop itself.
+  const selectPuzzle = (i: number): boolean => {
+    if (i < 0 || i >= puzzles.length || i === currentPuzzle) return false;
+    solutionAbortRef.current?.abort();
+    setIsPlayingSolution(false);
+    setCurrentPuzzle(i);
+    setPuzzle(puzzles[i]);
+    if (puzzles[i].completion === "incomplete") {
+      setTimerStart(Date.now() - (puzzles[i].timeSpent || 0));
+    } else {
+      setTimerStart(null);
+    }
+    return true;
+  };
+
+  const puzzleHistory = (
+    <ChallengeHistory
+      challenges={puzzles.map((p) => ({
+        ...p,
+        label: p.rating?.toString() ?? "-",
+      }))}
+      current={currentPuzzle}
+      select={selectPuzzle}
+    />
+  );
+
   const mobile = !isDesktop();
 
   const addPuzzleModal = (
@@ -417,72 +445,28 @@ function Puzzles({ id }: { id: string }) {
     />
   );
 
-  const puzzleHistory = (
-    <ChallengeHistory
-      challenges={puzzles.map((p) => ({
-        ...p,
-        label: p.rating?.toString() ?? "-",
-      }))}
-      current={currentPuzzle}
-      select={(i) => {
-        if (i === currentPuzzle) return;
-        solutionAbortRef.current?.abort();
-        setIsPlayingSolution(false);
-        setCurrentPuzzle(i);
-        setPuzzle(puzzles[i]);
-        if (puzzles[i].completion === "incomplete") {
-          setTimerStart(Date.now() - (puzzles[i].timeSpent || 0));
-        } else {
-          setTimerStart(null);
-        }
-      }}
-    />
-  );
-
   if (mobile) {
-    const controls = (
-      <>
-        {addPuzzleModal}
-        {deleteDbModal}
-        <MobilePuzzleControls
-          puzzleDbs={puzzleDbs}
-          availableThemes={availableThemes}
-          themesTableMissing={themesTableMissing}
-          stats={{
-            rating: displayedRating,
-            accuracy,
-            streak: currentStreak,
-            time: trackTime ? formatTime(elapsedTime) : null,
-            avgTime: trackTime && avgTimeSeconds > 0 ? `${avgTimeSeconds.toFixed(1)}s` : null,
-          }}
-          themes={!isPuzzleIncomplete ? (puzzles[currentPuzzle]?.themes ?? []) : []}
-          turnToMove={turnToMove ?? null}
-          onAddDatabase={() => setAddOpened(true)}
-          onDeleteDatabase={() => setDeleteModalOpened(true)}
-          onNewPuzzle={() => selectedDb && generatePuzzle(selectedDb, true)}
-          onAnalyze={analyzePosition}
-          onClearSession={clearSession}
-          onHint={showHint}
-          onViewSolution={playSolution}
-          hintDisabled={hintDisabled}
-          solutionDisabled={solutionDisabled}
-          filtersOpened={filtersOpened}
-          setFiltersOpened={setFiltersOpened}
-        />
-      </>
+    const history = (
+      <MobilePuzzleHistoryCard puzzles={puzzles} current={currentPuzzle} select={selectPuzzle} />
     );
 
-    /** Capped so a long session's icon grid can never crowd out the board. */
-    const history = (
-      <Paper withBorder p="xs">
-        <ScrollArea.Autosize mah={110} offsetScrollbars>
-          {puzzleHistory}
-        </ScrollArea.Autosize>
-      </Paper>
+    const feedback = (
+      <MobilePuzzleFeedback
+        turnToMove={turnToMove ?? null}
+        playingSolution={isPlayingSolution}
+        completion={puzzles[currentPuzzle]?.completion}
+        themes={!isPuzzleIncomplete ? (puzzles[currentPuzzle]?.themes ?? []) : []}
+        onHint={showHint}
+        hintDisabled={hintDisabled}
+        onViewSolution={playSolution}
+        solutionDisabled={solutionDisabled}
+      />
     );
 
     return (
       <>
+        {addPuzzleModal}
+        {deleteDbModal}
         <Portal target="#left" style={{ height: "100%" }}>
           <PuzzleBoard
             key={currentPuzzle}
@@ -493,18 +477,46 @@ function Puzzles({ id }: { id: string }) {
             db={selectedDb}
           />
         </Portal>
-        {/* Landscape mirrors the desktop columns: board + history left, controls
-            and notation in the right column. Portrait keeps the action rows
-            directly under the board and pushes the rest into the sheet. */}
-        <Portal target="#bottomRight">{landscape ? history : controls}</Portal>
+        {/* Portrait puts the feedback strip right under the board and the
+            notation in the panel; landscape mirrors the desktop columns with
+            the history card on the left. The bar's stats sheet holds the rest
+            of the desktop panel — stats, database, filters, history. No move
+            stepper here: between the bar's puzzle steppers and the tappable
+            notation it would be a third chevron row. */}
+        <Portal target="#bottomRight">{landscape ? history : feedback}</Portal>
         <Portal target="#topRight" style={{ height: "100%" }}>
-          <Stack h="100%" gap="xs">
-            {landscape ? controls : history}
-            <Stack flex={1} gap="xs" style={{ minHeight: 0 }}>
-              <GameNotation />
-              <MoveControls readOnly />
-            </Stack>
+          <Stack h="100%" gap="xs" style={{ minHeight: 0 }}>
+            {landscape && feedback}
+            <GameNotation />
           </Stack>
+        </Portal>
+        <Portal target="#mobileBottomBar" style={{ height: "100%" }}>
+          <MobilePuzzleBar
+            puzzleDbs={puzzleDbs}
+            availableThemes={availableThemes}
+            themesTableMissing={themesTableMissing}
+            stats={{
+              rating: displayedRating,
+              accuracy,
+              streak: currentStreak,
+              time: trackTime ? formatTime(elapsedTime) : null,
+              avgTime: trackTime && avgTimeSeconds > 0 ? `${avgTimeSeconds.toFixed(1)}s` : null,
+            }}
+            puzzles={puzzles}
+            currentPuzzle={currentPuzzle}
+            select={selectPuzzle}
+            onAddDatabase={() => setAddOpened(true)}
+            onDeleteDatabase={() => setDeleteModalOpened(true)}
+            onClearSession={clearSession}
+            onNewPuzzle={() => selectedDb && generatePuzzle(selectedDb, true)}
+            newPuzzleDisabled={!selectedDb}
+            onAnalyze={analyzePosition}
+            analyzeDisabled={!selectedDb}
+            onPrev={() => selectPuzzle(currentPuzzle - 1)}
+            canPrev={currentPuzzle > 0 && puzzles.length > 0}
+            onNext={() => selectPuzzle(currentPuzzle + 1)}
+            canNext={currentPuzzle < puzzles.length - 1}
+          />
         </Portal>
       </>
     );

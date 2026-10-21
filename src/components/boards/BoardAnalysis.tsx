@@ -44,7 +44,6 @@ import BoardControls from "./BoardControls";
 import EditingCard from "./EditingCard";
 import EvalListener from "./EvalListener";
 import { MobileAnalysisBar } from "./MobileAnalysisBar";
-import { MobileEngineLines } from "./MobileEngineLines";
 import { MobileOpeningSummary } from "./MobileOpeningSummary";
 
 function BoardAnalysis() {
@@ -315,9 +314,6 @@ function BoardAnalysis() {
       </Portal>
       {mobile && (
         <>
-          <Portal target="#mobileEngineLines">
-            <MobileEngineLines />
-          </Portal>
           <Portal target="#mobileBottomBar" style={{ height: "100%" }}>
             <MobileAnalysisBar
               editingMode={editingMode}

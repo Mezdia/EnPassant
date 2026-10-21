@@ -1,10 +1,24 @@
 import { ActionIcon, Button, Divider, Group, Stack, Text } from "@mantine/core";
 import { showNotification } from "@mantine/notifications";
-import { IconArrowBackUp, IconCopy, IconRoute, IconTargetArrow } from "@tabler/icons-react";
-import { useAtom } from "jotai";
+import {
+  IconArrowBackUp,
+  IconChartBar,
+  IconCopy,
+  IconRoute,
+  IconTargetArrow,
+  IconZoomCheck,
+} from "@tabler/icons-react";
+import { useAtom, useAtomValue } from "jotai";
 import { useContext, type ReactNode } from "react";
 import { useTranslation } from "react-i18next";
-import { showArrowsAtom, showConsecutiveArrowsAtom, showVariationArrowsAtom } from "@/state/atoms";
+import {
+  allEnabledAtom,
+  currentEvalOpenAtom,
+  enableAllAtom,
+  showArrowsAtom,
+  showConsecutiveArrowsAtom,
+  showVariationArrowsAtom,
+} from "@/state/atoms";
 import { TreeStateContext } from "../common/TreeStateContext";
 import BoardControls from "./BoardControls";
 import { MobileBookmarkSection } from "./MobileBookmarkSection";
@@ -39,6 +53,9 @@ export function MobileAnalysisMenu({
   const [showArrows, setShowArrows] = useAtom(showArrowsAtom);
   const [showVariationArrows, setShowVariationArrows] = useAtom(showVariationArrowsAtom);
   const [showConsecutiveArrows, setShowConsecutiveArrows] = useAtom(showConsecutiveArrowsAtom);
+  const allEnabled = useAtomValue(allEnabledAtom);
+  const [, enable] = useAtom(enableAllAtom);
+  const [evalOpen, setEvalOpen] = useAtom(currentEvalOpenAtom);
 
   const copyPgn = () => {
     // Reuses the tree store's own serializer — the same PGN the desktop
@@ -76,19 +93,39 @@ export function MobileAnalysisMenu({
           >
             <IconArrowBackUp size="1.2rem" />
           </ToggleCell>
+          {/* The engine toggle lives in the display row instead of the action
+              bar: it is another "what the evaluation shows" switch. */}
+          <ToggleCell
+            label={t("Board.Mobile.Engine")}
+            pressed={allEnabled}
+            onClick={() => enable(!allEnabled)}
+          >
+            <IconZoomCheck size="1.2rem" />
+          </ToggleCell>
+          {/* The gauge's own close affordance is a long-press on the bar, and
+              the column disappears with it, so the sheet is the way back. */}
+          <ToggleCell
+            label={t("Board.Mobile.EvalBar")}
+            pressed={evalOpen}
+            onClick={() => setEvalOpen(!evalOpen)}
+          >
+            <IconChartBar size="1.2rem" />
+          </ToggleCell>
         </Group>
       </div>
 
       <Divider />
 
       {/* BoardControls renders a vertical Stack for the desktop notation
-          strip; in this sheet it reads as a horizontal action row. */}
+          strip; in this sheet it reads as a horizontal action row. Flip is
+          already in the action bar, so the row omits it. */}
       <div className={classes.controls}>
         <BoardControls
           editingMode={editingMode}
           toggleEditingMode={toggleEditingMode}
           dirty={dirty}
           saveFile={saveFile}
+          hideFlip
         />
       </div>
 

@@ -5,13 +5,23 @@ against an in-process mock of the Tauri backend and the network, so it can be
 embedded in any web page — like the enpassant.ir homepage — with zero backend
 or deployment dependencies.
 
-```
-pnpm build:demo            # typecheck + vite build -> dist-demo/
+```bash
 pnpm dev:demo              # vite dev server on :1422 -> http://localhost:1422/demo/
+pnpm build:demo            # typecheck + vite build -> dist-demo/
 ```
 
-The output lives in `dist-demo/` (gitignored). `demo/index.html` is the entry;
-assets are emitted with a relative base so the build works from any path.
+The output lives in `dist-demo/` (gitignored). `demo/index.html` is the entry.
+The build keeps the page next to its assets — `dist-demo/demo/index.html`,
+`dist-demo/demo/assets/`, `dist-demo/demo/mockServiceWorker.js` — plus
+`dist-demo/pieces/` and `dist-demo/board/`, and links the assets as
+`../demo/assets/…`. Serve the `dist-demo/` root and open **`/demo/`**; on that
+static server `/` is only a directory listing, and copying the bundle to a root
+breaks the asset paths:
+
+```bash
+python3 -m http.server 4173 --directory dist-demo
+# http://localhost:4173/demo/
+```
 
 ## How it works
 
@@ -27,6 +37,7 @@ assets are emitted with a relative base so the build works from any path.
 | Autoplay            | `src/demo/autoplay.ts`                   | scripted, human-looking walkthrough driven by real DOM events; aborts on the first trusted `pointerdown`/`click`                                 |
 | Height reporting    | `src/demo/autoplay.ts`                   | `postMessage({source:"enpassant-demo", type:"resize", height})` whenever the content resizes                                                     |
 | Router basepath     | `src/App.tsx`                            | derives the router basepath from the page URL so routes work at `/`, `/demo/`, or a CDN prefix                                                   |
+| Phone preview       | `demo/mobile-preview.html`               | dev-only frame at four phone sizes; not a build input, so it never ships                                                                         |
 
 ## The default session
 
@@ -34,6 +45,32 @@ Every page load (refresh included) starts with a **random one of the three
 fixture games already open in the analysis tab** — like a session that was
 left running. `sessionStorage` is cleared at boot so a refresh rolls a new
 game.
+
+## Phone preview
+
+`demo/mobile-preview.html` is the dev-only way to look at the mobile UI. It
+frames the demo in a real CSS viewport and switches between four presets
+(360×800, 390×844, 412×915, 768×1024), so the app's 767px platform switch, the
+mobile shell (`BottomTabBar`, `MobileBoardLayout`) and every media query behave
+as they do on a device.
+
+```bash
+pnpm dev:demo
+# http://localhost:1422/demo/mobile-preview.html
+```
+
+- It is **not** a Vite build input: it never reaches `dist-demo/` or the
+  `demo-build` branch, and it frames `index.html` from its own directory, so it
+  keeps working under any base path.
+- Opening `/demo/` in a narrow window also reports `"android"`
+  (`installResponsivePlatform` in `src/demo/bootstrap.ts`), but the harness
+  gives an exact viewport and a device-sized frame without touching devtools.
+- It cannot fake `env(safe-area-inset-*)` — those stay 0 in a desktop browser,
+  so status-bar and gesture-bar insets still have to be checked on a phone.
+  For that, start the dev server with `--host` (`pnpm dev:demo --host`) and open
+  the same path from the phone on the LAN, or put a tunnel in front of it
+  (`cloudflared tunnel --url http://localhost:1422`); the common tunnel domains
+  are already listed in `server.allowedHosts` in `vite.config.demo.ts`.
 
 ## Why the mock is in-process instead of MSW
 
@@ -83,6 +120,20 @@ testing.
 ## CI and the demo-build branch
 
 `.github/workflows/demo.yml` builds `dist-demo` on every push to `master` and
-force-pushes the artifact to the `demo-build` branch (root = dist content).
-The website's deploy fetches that branch; a CDN mirror works at
-`https://cdn.jsdelivr.net/gh/Mezdia/EnPassant@demo-build/index.html`.
+runs `.github/scripts/publish-demo.sh`, which force-pushes the bundle to the
+`demo-build` branch: the contents of `dist-demo/demo/` sit at the branch root
+(`index.html`, `assets/`, `mockServiceWorker.js`), next to `pieces/` and
+`board/`.
+
+The built `index.html` links its assets as `../demo/assets/…`, so the bundle is
+only self-consistent when it is mounted under a `/demo/` path — which is what
+the website does (<https://www.enpassant.ir/demo/>). Served from a bare domain
+root, those links resolve to `/demo/assets/…` and 404; that is why the branch
+root is a source for the site's `/demo/` mount, not a page you can open
+directly. jsDelivr is an asset mirror at best — it serves GitHub `.html` files
+as `text/plain`, so it cannot run the demo.
+
+> Known issue: `publish-demo.sh` only removes tracked files from the orphan
+> branch before `git add -A`, so `.gitignore` disappears first and CI's
+> `node_modules/`, `dist-demo/` and `tsconfig.tsbuildinfo` are committed to
+> `demo-build` as well. Nothing reads them; it just makes that branch huge.

@@ -218,6 +218,17 @@ function EngineListener({
                 return newMap;
               });
               setProgress(progress);
+              // Cloud engines (lichess/chessdb — the only kind Android can
+              // run) answer over HTTP instead of emitting bestMovesPayload
+              // events, so the listener above never fires and the eval gauge
+              // stays blank. Mirror its score write here, first engine wins,
+              // exactly like the event path.
+              if (
+                bestMoves.length > 0 &&
+                (firstEngineWithLines === engine.id || firstEngineWithLines === null)
+              ) {
+                setScore(bestMoves[0].score);
+              }
             }
           });
         }
@@ -239,6 +250,8 @@ function EngineListener({
       getBestMoves,
       setEngineVariation,
       engine,
+      firstEngineWithLines,
+      setScore,
     ],
   );
   return null;

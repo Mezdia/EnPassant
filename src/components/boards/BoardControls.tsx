@@ -36,6 +36,9 @@ interface BoardControlsProps {
   onTakeBack?: () => void;
   disableVariations?: boolean;
   allowEditing?: boolean;
+  // Mobile-only: the phone action bar already flips the board, so the sheet
+  // rows pass this to avoid a duplicated control. No desktop caller sets it.
+  hideFlip?: boolean;
 }
 
 function BoardControls({
@@ -47,6 +50,7 @@ function BoardControls({
   onTakeBack,
   disableVariations,
   allowEditing,
+  hideFlip,
 }: BoardControlsProps) {
   const { t } = useTranslation();
   const { documentDir } = useLoaderData({ from: "/" });
@@ -161,16 +165,18 @@ function BoardControls({
           </ActionIcon>
         </Tooltip>
       )}
-      <Tooltip
-        position="right"
-        label={t("Board.Action.FlipBoard", {
-          key: keyMap.SWAP_ORIENTATION.keys,
-        })}
-      >
-        <ActionIcon onClick={() => toggleOrientation()}>
-          <IconSwitchVertical size="1.2rem" />
-        </ActionIcon>
-      </Tooltip>
+      {!hideFlip && (
+        <Tooltip
+          position="right"
+          label={t("Board.Action.FlipBoard", {
+            key: keyMap.SWAP_ORIENTATION.keys,
+          })}
+        >
+          <ActionIcon onClick={() => toggleOrientation()}>
+            <IconSwitchVertical size="1.2rem" />
+          </ActionIcon>
+        </Tooltip>
+      )}
     </Stack>
   );
 }

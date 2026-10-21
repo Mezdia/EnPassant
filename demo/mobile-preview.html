@@ -76,6 +76,13 @@
       code {
         color: #c9d1d9;
       }
+      /* The harness is regularly opened on the phone itself, where the 16px
+         stage padding would clip a preset that matches the screen width. */
+      @media (max-width: 820px) {
+        #stage {
+          padding: 0;
+        }
+      }
     </style>
   </head>
 
@@ -134,7 +141,15 @@
       try {
         saved = localStorage.getItem("enpassant-mobile-preview");
       } catch {}
-      apply(PRESETS.find((p) => p.label === saved) ?? PRESETS[1]);
+      // On a phone the harness is opened on the device itself, so start from the
+      // preset closest to the real screen instead of the desktop default.
+      const closest =
+        innerWidth <= 768
+          ? PRESETS.reduce((best, p) =>
+              Math.abs(p.w - innerWidth) < Math.abs(best.w - innerWidth) ? p : best,
+            )
+          : undefined;
+      apply(PRESETS.find((p) => p.label === saved) ?? closest ?? PRESETS[1]);
 
       // Same directory as this harness, so it keeps working under any base path.
       frame.src = new URL("index.html", location.href).href;

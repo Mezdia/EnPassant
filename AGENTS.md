@@ -194,11 +194,22 @@ cd src-tauri && cargo check --target aarch64-linux-android    # needs the NDK
 A `#[cfg]` typo means one platform silently fails to compile, and desktop-only CI will
 not catch it.
 
-**Cheapest way to test the mobile UI:** `pnpm dev:demo` in a browser. The demo mock
-reports `"android"` below a viewport breakpoint (`src/demo/bootstrap.ts` →
-`setDemoPlatform`), so narrowing the window exercises the real mobile layout,
-`BottomTabBar`, and `MobileBoardLayout` without an emulator. Use this first; reserve
-`pnpm tauri android dev` for platform-API behavior (deep links, SAF, haptics).
+**Cheapest way to test the mobile UI:** the dev-only phone preview,
+`demo/mobile-preview.html`. It frames the demo in a real CSS viewport at 360×800,
+390×844, 412×915 and 768×1024, so the 767px platform switch and every media query
+behave as they do on a device — no emulator, no devtools resizing:
+
+```bash
+pnpm dev:demo
+# open http://localhost:1422/demo/mobile-preview.html
+```
+
+To look at it on a phone, expose that dev server (`pnpm dev:demo --host` for the LAN, or
+`cloudflared tunnel --url http://localhost:1422`); tunnel host names are already allowed
+by `server.allowedHosts` in `vite.config.demo.ts`. The harness cannot fake
+`env(safe-area-inset-*)` (those stay 0), so status-bar and gesture-bar insets still need
+a real device. Reserve `pnpm tauri android dev` for platform-API behavior (deep links,
+SAF, haptics).
 
 Full Android build (JDK 17 + SDK platform 34 + NDK, `NDK_HOME`/`ANDROID_HOME` set):
 
@@ -235,8 +246,8 @@ When resolving conflicts:
    new plugin is desktop-only, it goes in the `Cargo.toml` target block _and_
    `capabilities/desktop.json` _and_ a `#[cfg(desktop)]` registration — all three, or
    the Android build breaks.
-4. **New upstream UI:** check it on a narrow viewport via `pnpm dev:demo` before
-   declaring the merge clean.
+4. **New upstream UI:** check it at phone size in the preview (`pnpm dev:demo` →
+   `http://localhost:1422/demo/mobile-preview.html`) before declaring the merge clean.
 5. Re-run the full verification block above, then `pnpm build`.
 
 ---
@@ -255,11 +266,18 @@ live contract.
   touches a real backend.
 - `vite.config.demo.ts` + `demo/index.html` — build entry; **must stay in
   sync with the main app**. Output: `dist-demo/` (gitignored).
+- `demo/mobile-preview.html` — dev-only phone preview. Frames `demo/index.html`
+  (same directory, so it works under any base path) at four phone/tablet
+  presets and remembers the last one. It is **not** a Vite build input, so it
+  never reaches `dist-demo/` or the `demo-build` branch — keep it that way;
+  it exists purely to exercise the mobile shell without an emulator.
 - `.github/workflows/demo.yml` — on every push to `master` it builds the demo
   and force-pushes `dist-demo` to the **`demo-build`** branch. The branch root
-  IS the bundle (index.html, assets/, pieces/, board/, mockServiceWorker.js).
-  The website fetches this branch; jsdelivr mirrors it as the runtime
-  fallback. **Changing the branch layout breaks both.**
+  is the flattened `dist-demo/demo/` bundle (`index.html`, `assets/`,
+  `mockServiceWorker.js`) plus `pieces/` and `board/`; the built `index.html`
+  links its assets as `../demo/assets/…`, so the bundle only loads when it is
+  mounted under a `/demo/` path (as the website does). The website fetches this
+  branch. **Changing the branch layout breaks it.**
 - `src/App.tsx` — derives the router basepath from the page URL so the app
   works at `/`, `/demo/`, or a CDN prefix. Keep this derivation.
 - `DEMO.md` — architecture, fixtures, autoplay editing guide.
@@ -300,7 +318,8 @@ live contract.
   `src/demo/tauri/mock.ts` with raw returns.
 - The demo mock also fakes the OS plugin (`DemoPlatform = "linux" | "android"`),
   which is what makes the mobile layout testable in a browser. Keep that surface
-  working when you add platform branches.
+  working when you add platform branches — `demo/mobile-preview.html` (see
+  "Verification before you finish") is built entirely on it.
 - Before merging anything that touches `src/demo/`, the website pipeline,
   `demo.yml`, or `src/App.tsx`, run: `pnpm lint:ci && pnpm test && pnpm build:demo`.
 

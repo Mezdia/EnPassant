@@ -48,6 +48,7 @@ import {
   snapArrowsAtom,
 } from "@/state/atoms";
 import { keyMapAtom } from "@/state/keybinds";
+import { anyEngineEnabledAtom } from "@/state/mobileAtoms";
 import classes from "@/styles/Chessboard.module.css";
 import mobileClasses from "./Board.mobile.module.css";
 import { ANNOTATION_INFO, isBasicAnnotation } from "@/utils/annotation";
@@ -181,11 +182,18 @@ function Board({
   const currentTab = useAtomValue(currentTabAtom);
   const tabFile = getTabFile(currentTab);
   const [evalOpen, setEvalOpen] = useAtom(currentEvalOpenAtom);
+  const engineOn = useAtomValue(anyEngineEnabledAtom);
   // On a phone the eval gauge sits on the board's end edge (see
   // Board.mobile.module.css) and disappears entirely while a game is being
   // played, the way the reference app arranges it. Desktop keeps upstream's
   // gauge on every screen.
   const hideGaugeOnPhone = !isDesktop() && currentTab?.type === "play";
+  // The gauge also owns a 25px column, so with nothing to draw — no engine
+  // enabled, or the bar closed — that column only pushes the board off centre.
+  // Collapsing it lets the board take the full width, exactly like Play; the
+  // CSS animates the width so switching the engine on slides the board over
+  // instead of snapping it.
+  const gaugeCollapsedOnPhone = !isDesktop() && (!evalOpen || !engineOn);
 
   const [deck, setDeck] = useAtom(
     deckAtomFamily({
@@ -472,8 +480,10 @@ function Board({
                 board. */}
             <Box
               h="100%"
+              className={!isDesktop() ? mobileClasses.gauge : undefined}
+              data-collapsed={gaugeCollapsedOnPhone ? "" : undefined}
               style={{
-                width: 25,
+                width: isDesktop() ? 25 : undefined,
                 display: hideGaugeOnPhone ? "none" : undefined,
               }}
             >
